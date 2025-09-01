@@ -1,0 +1,82 @@
+[project]
+name = "acpclient"
+version = "0.1.0"
+description = "Multi agent acp client"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "acp-sdk==0.7.3",
+    "colorama>=0.4.6",
+    "crewai>=0.95.0",
+    "crewai-tools>=0.33.0",
+    "fastapi>=0.104.0",
+    "langchain>=0.3.23",
+    "langchain-litellm>=0.1.4",
+    "langchain-ollama>=0.3.2",
+    "mcp>=1.7.1",
+    "pydantic>=2.11.4",
+    "shutup>=0.2.0",
+    "smolagents[litellm,mcp,toolkit]>=1.14.0,<1.19.0",
+    "uvicorn>=0.24.0",
+    "yfinance>=0.2.58",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+    "isort>=6.0.1",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=6.0.0",
+    "httpx>=0.25.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "slow: Slow running tests",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["server", "client"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError", 
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]

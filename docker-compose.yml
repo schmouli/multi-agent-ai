@@ -1,0 +1,45 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_TYPE: server
+    image: multi-agent-ai:server
+    container_name: multi-agent-server
+    ports:
+      - "8000:8000"
+    environment:
+      - SERVICE_TYPE=server
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pass from environment
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  webclient:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_TYPE: webclient
+    image: multi-agent-ai:webclient
+    container_name: multi-agent-webclient
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVICE_TYPE=webclient
+    depends_on:
+      - server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    name: multi-agent-network
