@@ -22,6 +22,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+PORT_CHANGES.md
 
 # Virtual environments
 .env

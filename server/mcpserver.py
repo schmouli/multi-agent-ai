@@ -313,4 +313,4 @@ def doctor_search(state: str) -> str:
 
 # Kick off server if file is run
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    mcp.run()
