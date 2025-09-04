@@ -22,7 +22,7 @@ class QueryResponse(BaseModel):
 async def query_hospital_agent(location: str, query: str) -> str:
     """Query the hospital agent asynchronously"""
     try:
-        async with Client(base_url="http://localhost:8000") as hospital:
+        async with Client(base_url="http://localhost:7000") as hospital:
             run1 = await hospital.run_sync(
                 agent="health_agent", input=f"I'm based in {location}. {query}"
             )
@@ -54,4 +54,4 @@ async def query(request: QueryRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=7080)

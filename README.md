@@ -34,13 +34,13 @@ multi-agent-ai/
 - Main ACP server with health agent using OpenAI GPT-4o-mini
 - Internally spawns MCP server (`mcpserver.py`) as subprocess
 - Contains doctor search functionality via MCP tools
-- Runs on port 8000
+- Runs on port 7000
 
 ### 2. Web Client (`client/web_client.py`)
 - FastAPI web interface
 - Connects to ACP server
 - Provides HTML form for location and health queries
-- Runs on port 8080
+- Runs on port 7080
 
 ## Architecture
 
@@ -94,8 +94,8 @@ All scripts are executable and can be run from the project root:
    The docker-compose will automatically read your OpenAI API key from the `.env` file.
 
 3. **Access:**
-   - Web UI: http://localhost:8080
-   - API docs: http://localhost:8080/docs
+   - Web UI: http://localhost:7080
+   - API docs: http://localhost:7080/docs
 
 ## Development
 

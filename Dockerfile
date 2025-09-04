@@ -27,8 +27,8 @@ ARG SERVICE_TYPE=webclient
 ENV SERVICE_TYPE=${SERVICE_TYPE}
 
 # Expose ports
-# Port 8080 for web client, 8000 for ACP server
-EXPOSE 8080 8000
+# Port 7080 for web client, 7000 for ACP server
+EXPOSE 7080 7000
 
 # Create entrypoint script
 RUN echo '#!/bin/bash\n\

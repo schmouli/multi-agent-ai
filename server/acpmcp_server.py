@@ -40,4 +40,11 @@ async def health_agent(
 
 
 if __name__ == "__main__":
-    server.run()
+    import uvicorn
+    from acp_sdk.utils import asgi_app
+    
+    # Create ASGI app from ACP server
+    app = asgi_app(server)
+    
+    # Run with uvicorn on port 7000
+    uvicorn.run(app, host="0.0.0.0", port=7000)

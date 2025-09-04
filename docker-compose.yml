@@ -8,7 +8,7 @@ services:
     image: multi-agent-ai:server
     container_name: multi-agent-server
     ports:
-      - "8000:8000"
+      - "7000:7000"
     environment:
       - SERVICE_TYPE=server
       - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pass from environment
@@ -28,14 +28,14 @@ services:
     image: multi-agent-ai:webclient
     container_name: multi-agent-webclient
     ports:
-      - "8080:8080"
+      - "7080:7080"
     environment:
       - SERVICE_TYPE=webclient
     depends_on:
       - server
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      test: ["CMD", "curl", "-f", "http://localhost:7080/docs"]
       interval: 30s
       timeout: 10s
       retries: 3
