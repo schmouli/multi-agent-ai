@@ -1,15 +1,18 @@
-"""Tests for the MCP server functionality."""
+"""Tests for the MCP server functionality with HTTP transport."""
 
 import pytest
+import asyncio
+import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
+from fastapi.testclient import TestClient
 
 # Add the project root to the Python path for imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from server.mcpserver import doctors, doctor_search
+from server.mcpserver import doctors, doctor_search, app
 
 
 class TestMCPServer:
@@ -163,3 +166,302 @@ class TestDoctorDataModel:
                 for field in expected_fields:
                     if field in education:
                         assert isinstance(education[field], (str, type(None)))
+
+
+class TestMCPServerHTTP:
+    """Test cases for MCP server HTTP transport functionality."""
+
+    @pytest.fixture
+    def client(self):
+        """Create a test client for the MCP server app."""
+        return TestClient(app)
+
+    def test_mcp_server_index(self, client):
+        """Test the MCP server index endpoint."""
+        response = client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "doctor-search-server"
+        assert data["version"] == "1.0.0"
+
+    def test_mcp_list_tools(self, client):
+        """Test the MCP list tools endpoint."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        assert "tools" in data["result"]
+        
+        tools = data["result"]["tools"]
+        assert len(tools) > 0
+        
+        # Should have doctor_search tool
+        tool_names = [tool["name"] for tool in tools]
+        assert "doctor_search" in tool_names
+
+    def test_mcp_call_tool_doctor_search(self, client):
+        """Test calling the doctor_search tool via MCP."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "doctor_search",
+                "arguments": {"state": "GA"}
+            }
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        assert "content" in data["result"]
+        
+        content = data["result"]["content"]
+        assert len(content) > 0
+        assert content[0]["type"] == "text"
+        assert "DOC001" in content[0]["text"]  # Dr. Sarah Mitchell in GA
+
+    def test_mcp_call_tool_invalid_state(self, client):
+        """Test calling doctor_search with invalid state."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "doctor_search",
+                "arguments": {"state": "XY"}
+            }
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        content = data["result"]["content"]
+        assert "No doctors found in state: XY" in content[0]["text"]
+
+    def test_mcp_call_nonexistent_tool(self, client):
+        """Test calling a non-existent tool."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "nonexistent_tool",
+                "arguments": {}
+            }
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert data["error"]["code"] == -32601  # Method not found
+
+    def test_mcp_invalid_method(self, client):
+        """Test calling an invalid MCP method."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "invalid/method"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert data["error"]["code"] == -32601  # Method not found
+
+    def test_mcp_malformed_request(self, client):
+        """Test MCP server with malformed JSON-RPC request."""
+        response = client.post("/", json={
+            "invalid": "request"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert data["error"]["code"] == -32600  # Invalid Request
+
+
+class TestMCPServerCurlCommands:
+    """Test curl-equivalent commands for MCP server."""
+
+    @pytest.fixture
+    def client(self):
+        """Create a test client for the MCP server app."""
+        return TestClient(app)
+
+    def test_curl_get_server_info(self, client):
+        """
+        Test equivalent of:
+        curl -s http://localhost:8333/
+        """
+        response = client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "doctor-search-server"
+        assert data["version"] == "1.0.0"
+
+    def test_curl_list_mcp_tools(self, client):
+        """
+        Test equivalent of:
+        curl -X POST http://localhost:8333/ \
+             -H "Content-Type: application/json" \
+             -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+        """
+        response = client.post(
+            "/",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list"
+            },
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+        assert "result" in data
+        
+        tools = data["result"]["tools"]
+        assert any(tool["name"] == "doctor_search" for tool in tools)
+
+    def test_curl_search_doctors_georgia(self, client):
+        """
+        Test equivalent of:
+        curl -X POST http://localhost:8333/ \
+             -H "Content-Type: application/json" \
+             -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "doctor_search", "arguments": {"state": "GA"}}}'
+        """
+        response = client.post(
+            "/",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "doctor_search",
+                    "arguments": {"state": "GA"}
+                }
+            },
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+        
+        content = data["result"]["content"]
+        assert "Dr. Sarah Mitchell" in content[0]["text"]
+        assert "Cardiology" in content[0]["text"]
+        assert "Atlanta" in content[0]["text"]
+
+    def test_curl_search_multiple_states(self, client):
+        """
+        Test searching multiple states with curl-equivalent commands.
+        """
+        test_states = ["CA", "TX", "FL", "NY"]
+        
+        for state in test_states:
+            response = client.post(
+                "/",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "doctor_search",
+                        "arguments": {"state": state}
+                    }
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert "result" in data
+            
+            content = data["result"]["content"]
+            # Either should find doctors or return "No doctors found"
+            text_content = content[0]["text"]
+            assert state in text_content or "No doctors found" in text_content
+
+    def test_curl_verbose_request(self, client):
+        """
+        Test equivalent of:
+        curl -v -X POST http://localhost:8333/ \
+             -H "Content-Type: application/json" \
+             -d '{"jsonrpc": "2.0", "id": 999, "method": "tools/call", "params": {"name": "doctor_search", "arguments": {"state": "CA"}}}'
+        """
+        response = client.post(
+            "/",
+            json={
+                "jsonrpc": "2.0",
+                "id": 999,
+                "method": "tools/call",
+                "params": {
+                    "name": "doctor_search",
+                    "arguments": {"state": "CA"}
+                }
+            },
+            headers={"Content-Type": "application/json"}
+        )
+        
+        # Verify response details (equivalent to verbose curl output)
+        assert response.status_code == 200
+        assert "application/json" in response.headers["content-type"]
+        assert response.elapsed_time is not None
+        
+        data = response.json()
+        assert data["id"] == 999  # Should echo back the request ID
+        assert "result" in data
+
+    def test_curl_error_conditions(self, client):
+        """
+        Test various error conditions with curl-equivalent requests.
+        """
+        # Invalid JSON-RPC format
+        response = client.post(
+            "/",
+            json={"invalid": "request"},
+            headers={"Content-Type": "application/json"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert data["error"]["code"] == -32600  # Invalid Request
+
+        # Invalid tool name
+        response = client.post(
+            "/",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "invalid_tool",
+                    "arguments": {}
+                }
+            },
+            headers={"Content-Type": "application/json"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert data["error"]["code"] == -32601  # Method not found
+
+    def test_curl_health_check(self, client):
+        """
+        Test health check endpoint:
+        curl -s http://localhost:8333/health
+        """
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"

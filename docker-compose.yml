@@ -1,20 +1,44 @@
 services:
+  mcpserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_TYPE: mcpserver
+    image: multi-agent-ai:mcpserver
+    container_name: multi-agent-mcpserver
+    ports:
+      - "8333:8333"
+    environment:
+      - SERVICE_TYPE=mcpserver
+      - MCP_TRANSPORT=http
+      - MCP_PORT=8333
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   server:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        SERVICE_TYPE: server
+        SERVICE_TYPE: fastapi-server
     image: multi-agent-ai:server
     container_name: multi-agent-server
     ports:
       - "7000:7000"
     environment:
-      - SERVICE_TYPE=server
+      - SERVICE_TYPE=fastapi-server
       - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pass from environment
+      - MCP_SERVER_URL=http://mcpserver:8333
+    depends_on:
+      - mcpserver
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -31,6 +55,7 @@ services:
       - "7080:7080"
     environment:
       - SERVICE_TYPE=webclient
+      - SERVER_URL=http://server:7000
     depends_on:
       - server
     restart: unless-stopped

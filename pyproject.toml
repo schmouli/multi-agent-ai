@@ -10,6 +10,7 @@ dependencies = [
     "crewai>=0.95.0",
     "crewai-tools>=0.33.0",
     "fastapi>=0.104.0",
+    "httpx>=0.25.0",
     "langchain>=0.3.23",
     "langchain-litellm>=0.1.4",
     "langchain-ollama>=0.3.2",
@@ -51,13 +52,25 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--disable-warnings",
+    "--maxfail=10",
+    "--durations=10",
+    "--color=yes",
 ]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests", 
     "slow: Slow running tests",
+    "curl: Tests that simulate curl commands",
+    "async: Tests that test async functionality",
+    "mcp: Tests related to MCP server functionality",
+    "agent: Tests related to the agent server",
+    "web: Tests related to the web client",
+    "e2e: End-to-end tests",
 ]
 asyncio_mode = "auto"
+timeout = 30
+log_cli = true
+log_cli_level = "INFO"
 
 [tool.coverage.run]
 source = ["server", "client"]

@@ -1,0 +1,31 @@
+# Docker build files
+.dockerignore
+Dockerfile*
+
+# Git and development files
+.git/
+.gitignore
+*.md
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temporary files
+*.log
+.coverage
+htmlcov/
+
+# Environment files (copy .env.example to .env)
+.env

@@ -4,49 +4,58 @@
 
 ```
 multi-agent-ai/
-├── server/                 # Server components
-│   ├── mcpserver.py       # MCP tools server
-│   └── acpmcp_server.py   # ACP server with health agent
-├── client/                 # Client components
-│   ├── web_client.py      # FastAPI web interface
-│   └── templates/         # HTML templates
-│       └── index.html     # Web UI
-├── scripts/               # Utility scripts
-│   ├── build.sh          # Docker build script
-│   ├── format.sh         # Code formatting script
-│   ├── test.sh           # Test runner script
-│   └── verify-config.sh  # Configuration validation
-├── tests/                 # Test files
-│   ├── test_mcpserver.py # MCP server tests
-│   ├── test_acpmcp_server.py # ACP server tests
+├── server/                      # Server components
+│   ├── mcpserver.py            # MCP tools server
+│   ├── fastapi_agent_server.py # FastAPI agent server (primary)
+│   └── acpmcp_server.py        # ACP server (deprecated)
+├── client/                      # Client components
+│   ├── web_client.py           # FastAPI web interface
+│   └── templates/              # HTML templates
+│       └── index.html          # Web UI
+├── scripts/                    # Utility scripts
+│   ├── build.sh               # Docker build script
+│   ├── format.sh              # Code formatting script
+│   ├── test.sh                # Test runner script
+│   └── verify-config.sh       # Configuration validation
+├── tests/                      # Test files
+│   ├── test_mcpserver.py      # MCP server tests
+│   ├── test_acpmcp_server.py  # ACP server tests
 │   └── test_web_client_simple.py # Web client tests
-├── pyproject.toml         # Project dependencies
-├── Dockerfile             # Multi-service Docker build
-├── docker-compose.yml     # Orchestration
-├── .env.example          # Environment template
-├── .gitignore            # Git exclusions
-└── README.md             # This file
+├── pyproject.toml              # Project dependencies
+├── Dockerfile                  # Multi-service Docker build
+├── docker-compose.yml          # Orchestration
+├── .env.example               # Environment template
+├── .gitignore                 # Git exclusions
+└── README.md                  # This file
 ```
 
 ## Services
 
-### 1. Server (`server/acpmcp_server.py`)
-- Main ACP server with health agent using OpenAI GPT-4o-mini
-- Internally spawns MCP server (`mcpserver.py`) as subprocess
-- Contains doctor search functionality via MCP tools
+### 1. FastAPI Agent Server (`server/fastapi_agent_server.py`) - PRIMARY
+- Main agent server built with FastAPI
+- Integrates with smolagents and LiteLLM for AI responses  
+- Communicates with MCP server via HTTP for doctor search
+- Stable operation without restart loops
 - Runs on port 7000
 
-### 2. Web Client (`client/web_client.py`)
+### 2. MCP Server (`server/mcpserver.py`)
+- Standalone Model Context Protocol server
+- Provides doctor search functionality
+- Supports both HTTP and stdio transports
+- Runs on port 8333
+
+### 3. Web Client (`client/web_client.py`)
 - FastAPI web interface
-- Connects to ACP server
+- Connects directly to FastAPI agent server
 - Provides HTML form for location and health queries
 - Runs on port 7080
 
 ## Architecture
 
-The application uses a simplified two-service architecture:
-- **Server**: Single ACP server that includes MCP tools internally
-- **Client**: Web interface that communicates with the server
+The application uses a stable three-service architecture:
+- **FastAPI Agent Server**: Main AI agent using FastAPI (replaces problematic ACP SDK)
+- **MCP Server**: Standalone tools server for doctor search functionality
+- **Web Client**: Frontend interface communicating with agent server
 
 The MCP server (`mcpserver.py`) is automatically started as a subprocess when the main server runs, eliminating the need for separate container orchestration.
 

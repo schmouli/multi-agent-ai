@@ -313,4 +313,31 @@ def doctor_search(state: str) -> str:
 
 # Kick off server if file is run
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+    import os
+    
+    # Check if we should run in HTTP mode (for Docker container)
+    if os.getenv("MCP_TRANSPORT") == "http":
+        port = int(os.getenv("MCP_PORT", "8333"))
+        print(f"Starting MCP server on HTTP port {port}")
+        # Create a simple HTTP server using FastAPI
+        from fastapi import FastAPI
+        from fastapi.responses import JSONResponse
+        import uvicorn
+        
+        app = FastAPI(title="MCP Doctor Server")
+        
+        @app.post("/doctor_search")
+        async def api_doctor_search(request: dict):
+            state = request.get("state", "")
+            result = doctor_search(state)
+            return JSONResponse({"result": result})
+        
+        @app.get("/health")
+        async def health_check():
+            return {"status": "healthy", "service": "MCP Doctor Server"}
+        
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    else:
+        print("Starting MCP server with stdio transport")
+        mcp.run()

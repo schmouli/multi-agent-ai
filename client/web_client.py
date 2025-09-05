@@ -1,11 +1,15 @@
-from acp_sdk.client import Client
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+import os
+import httpx
 
 app = FastAPI(
     title="Hospital Agent Client", description="Web client for hospital agent queries"
 )
+
+# Server URL configuration - use environment variable or default to Docker service name
+SERVER_URL = os.getenv("SERVER_URL", "http://server:7000")
 
 
 class QueryRequest(BaseModel):
@@ -20,14 +24,29 @@ class QueryResponse(BaseModel):
 
 
 async def query_hospital_agent(location: str, query: str) -> str:
-    """Query the hospital agent asynchronously"""
+    """Query the hospital agent asynchronously using direct HTTP"""
     try:
-        async with Client(base_url="http://localhost:7000") as hospital:
-            run1 = await hospital.run_sync(
-                agent="health_agent", input=f"I'm based in {location}. {query}"
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{SERVER_URL}/run_sync",
+                json={
+                    "agent": "health_agent",
+                    "input": f"I'm based in {location}. {query}"
+                },
+                timeout=30.0
             )
-            content = run1.output[0].parts[0].content
-            return content
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success") and result.get("output"):
+                    return result["output"][0]["parts"][0]["content"]
+                else:
+                    raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+            else:
+                raise HTTPException(status_code=response.status_code, detail=f"Server error: {response.text}")
+                
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
