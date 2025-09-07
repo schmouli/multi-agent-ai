@@ -32,7 +32,7 @@ services:
       - "7000:7000"
     environment:
       - SERVICE_TYPE=fastapi-server
-      - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pass from environment
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}  # Pass from environment or use default
       - MCP_SERVER_URL=http://mcpserver:8333
     depends_on:
       - mcpserver

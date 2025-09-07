@@ -6,10 +6,6 @@ case "$SERVICE_TYPE" in
     echo "Starting FastAPI Agent Server..."
     exec uv run server/fastapi_agent_server.py
     ;;
-  "acp-server")
-    echo "Starting ACP Server (deprecated)..."
-    exec uv run server/acpmcp_server.py
-    ;;
   "mcpserver")
     echo "Starting MCP Server on port ${MCP_PORT:-8333}..."
     export MCP_TRANSPORT=http

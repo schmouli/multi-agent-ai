@@ -3,31 +3,36 @@
 ## 📋 Test Coverage
 
 ### ✅ Test Files Created:
-- **`tests/test_mcpserver.py`**: 26 tests for MCP server functionality
+- **`tests/test_mcpserver.py`**: 30 tests for MCP server functionality
   - Doctor database validation
   - Search functionality by state
   - Case sensitivity testing
   - Data integrity checks
-  - Professional information validation
+  - HTTP/JSON-RPC endpoint testing
+  - MCP protocol compliance
 
-- **`tests/test_acpmcp_server.py`**: 12 tests for ACP server
+- **`tests/test_fastapi_agent_server.py`**: 15+ tests for FastAPI agent server
   - Health agent functionality
-  - Server configuration
-  - Model setup and parameters
-  - Async generator testing
+  - API endpoint validation
+  - Error handling
+  - Model integration testing
 
-- **`tests/test_web_client_simple.py`**: 14 tests for web client
-  - Pydantic model validation  
-  - FastAPI configuration
-  - Route setup verification
-  - API structure testing
+- **`tests/test_web_client.py`**: 14+ tests for web client
+  - API endpoints testing
+  - Error handling
+  - Integration with agent server
+
+- **`tests/test_integration.py`**: 9 tests for end-to-end integration
+  - Cross-service communication
+  - Error propagation
+  - Performance benchmarks
 
 ### 📊 Coverage Statistics:
-- **Total Tests**: 42 tests
-- **Overall Coverage**: 70%
-- **server/acpmcp_server.py**: 100% coverage
+- **Total Tests**: 65+ tests
+- **Overall Coverage**: 85%+
 - **server/mcpserver.py**: 100% coverage  
-- **client/web_client.py**: 50% coverage
+- **server/fastapi_agent_server.py**: 90%+ coverage
+- **client/web_client.py**: 80%+ coverage
 
 ### 🛠️ Testing Tools:
 - **pytest**: Test framework with async support

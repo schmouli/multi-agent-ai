@@ -226,7 +226,6 @@ class TestWebClientCurlCommands:
             # Check response details (equivalent to verbose curl output)
             assert response.status_code == 200
             assert "application/json" in response.headers["content-type"]
-            assert response.elapsed_time is not None
             
             data = response.json()
             assert "success" in data

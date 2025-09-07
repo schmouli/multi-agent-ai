@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for multi-agent-ai project
-FROM python:3.12-slim as base
+FROM python:3.12-slim AS base
 
 # Set working directory
 WORKDIR /app
@@ -31,7 +31,7 @@ ARG SERVICE_TYPE=fastapi-server
 ENV SERVICE_TYPE=${SERVICE_TYPE}
 
 # Expose ports based on service type
-# Port 7080 for web client, 7000 for ACP server, 8333 for MCP server
+# Port 7080 for web client, 7000 for FastAPI server, 8333 for MCP server
 EXPOSE 7080 7000 8333
 
 # Set entrypoint

@@ -3,17 +3,25 @@ set -e
 
 echo "Building multi-agent-ai Docker images..."
 
+# Check if docker command requires sudo
+if ! docker info >/dev/null 2>&1; then
+    echo "Docker requires sudo access. Using sudo for Docker commands..."
+    DOCKER_CMD="sudo docker"
+else
+    DOCKER_CMD="docker"
+fi
+
 # Build MCP Server image
 echo "Building MCP Server image..."
-docker build --build-arg SERVICE_TYPE=mcpserver -t multi-agent-ai:mcpserver .
+$DOCKER_CMD build --build-arg SERVICE_TYPE=mcpserver -t multi-agent-ai:mcpserver .
 
 # Build FastAPI Agent Server image
 echo "Building FastAPI Agent Server image..."
-docker build --build-arg SERVICE_TYPE=fastapi-server -t multi-agent-ai:server .
+$DOCKER_CMD build --build-arg SERVICE_TYPE=fastapi-server -t multi-agent-ai:server .
 
 # Build Web Client image
 echo "Building Web Client image..."
-docker build --build-arg SERVICE_TYPE=webclient -t multi-agent-ai:webclient .
+$DOCKER_CMD build --build-arg SERVICE_TYPE=webclient -t multi-agent-ai:webclient .
 
 echo "Build complete!"
 echo ""

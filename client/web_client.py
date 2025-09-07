@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
 import httpx
 
@@ -13,8 +13,8 @@ SERVER_URL = os.getenv("SERVER_URL", "http://server:7000")
 
 
 class QueryRequest(BaseModel):
-    location: str
-    query: str
+    location: str = Field(..., min_length=1, description="Location cannot be empty")
+    query: str = Field(..., min_length=1, description="Query cannot be empty")
 
 
 class QueryResponse(BaseModel):
@@ -64,9 +64,8 @@ async def query(request: QueryRequest):
     try:
         result = await query_hospital_agent(request.location, request.query)
         return QueryResponse(success=True, result=result)
-    except HTTPException:
-        raise
     except Exception as e:
+        # Handle all exceptions gracefully, including HTTPExceptions
         return QueryResponse(success=False, error=str(e))
 
 

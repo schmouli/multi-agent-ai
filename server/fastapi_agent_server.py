@@ -152,10 +152,10 @@ async def health_check():
 @app.post("/run_sync", response_model=AgentResponse)
 async def run_agent_sync(request: AgentRequest):
     """Run agent synchronously - compatible with ACP SDK client interface"""
+    if request.agent != "health_agent":
+        raise HTTPException(status_code=400, detail=f"Unknown agent: {request.agent}")
+    
     try:
-        if request.agent != "health_agent":
-            raise HTTPException(status_code=400, detail=f"Unknown agent: {request.agent}")
-        
         # Process the request
         result = await health_agent_logic(request.input)
         
@@ -175,11 +175,11 @@ async def run_agent_sync(request: AgentRequest):
 @app.post("/query")
 async def direct_query(request: dict):
     """Direct query endpoint for simple testing"""
+    prompt = request.get("query", "")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Missing 'query' field")
+    
     try:
-        prompt = request.get("query", "")
-        if not prompt:
-            raise HTTPException(status_code=400, detail="Missing 'query' field")
-        
         result = await health_agent_logic(prompt)
         return {"success": True, "result": result}
         

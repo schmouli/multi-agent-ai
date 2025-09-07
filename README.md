@@ -1,4 +1,4 @@
-# Multi-Agent AI Project
+# Multi-Agent Healthcare System
 
 ## Project Structure
 
@@ -6,8 +6,7 @@
 multi-agent-ai/
 ├── server/                      # Server components
 │   ├── mcpserver.py            # MCP tools server
-│   ├── fastapi_agent_server.py # FastAPI agent server (primary)
-│   └── acpmcp_server.py        # ACP server (deprecated)
+│   └── fastapi_agent_server.py # FastAPI agent server (primary)
 ├── client/                      # Client components
 │   ├── web_client.py           # FastAPI web interface
 │   └── templates/              # HTML templates
@@ -19,8 +18,8 @@ multi-agent-ai/
 │   └── verify-config.sh       # Configuration validation
 ├── tests/                      # Test files
 │   ├── test_mcpserver.py      # MCP server tests
-│   ├── test_acpmcp_server.py  # ACP server tests
-│   └── test_web_client_simple.py # Web client tests
+│   ├── test_fastapi_agent_server.py # FastAPI server tests
+│   └── test_web_client.py     # Web client tests
 ├── pyproject.toml              # Project dependencies
 ├── Dockerfile                  # Multi-service Docker build
 ├── docker-compose.yml          # Orchestration
@@ -113,8 +112,8 @@ Run locally with uv:
 # Install dependencies
 uv sync
 
-# Run ACP server
-uv run server/acpmcp_server.py
+# Run FastAPI agent server
+uv run server/fastapi_agent_server.py
 
 # Run web client (in another terminal)
 uv run client/web_client.py
@@ -133,8 +132,8 @@ uv run pytest --cov=server --cov=client --cov-report=html:htmlcov
 
 # Run specific test files
 uv run pytest tests/test_mcpserver.py
-uv run pytest tests/test_acpmcp_server.py
-uv run pytest tests/test_web_client_simple.py
+uv run pytest tests/test_fastapi_agent_server.py
+uv run pytest tests/test_web_client.py
 
 # Use the test script for comprehensive testing
 ./scripts/test.sh

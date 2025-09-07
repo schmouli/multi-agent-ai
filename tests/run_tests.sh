@@ -1,9 +1,7 @@
 #!/bin/bash
 
-"""
-Test runner script for the FastAPI-based multi-agent healthcare system.
-This script runs comprehensive tests including unit tests, integration tests, and curl-equivalent tests.
-"""
+# Test runner script for the FastAPI-based multi-agent healthcare system.
+# This script runs comprehensive tests including unit tests, integration tests, and curl-equivalent tests.
 
 # Set script options
 set -e  # Exit on any error
@@ -46,7 +44,7 @@ run_test_suite() {
     
     print_status "Running $test_name..."
     
-    if pytest "$test_file" $test_args -v --tb=short; then
+    if uv run pytest "$test_file" $test_args -v --tb=short; then
         print_success "$test_name completed successfully"
         return 0
     else
@@ -60,13 +58,8 @@ main() {
     print_status "Starting FastAPI Healthcare Agent Test Suite"
     
     # Check prerequisites
-    if ! command_exists pytest; then
-        print_error "pytest is not installed. Please install it with: pip install pytest"
-        exit 1
-    fi
-    
-    if ! command_exists python; then
-        print_error "Python is not available"
+    if ! command_exists uv; then
+        print_error "uv is not installed. Please install it from https://docs.astral.sh/uv/"
         exit 1
     fi
     
@@ -87,10 +80,10 @@ main() {
     
     # Test configuration
     local test_suites=(
-        "MCP Server Tests:tests/test_mcpserver.py:-m 'not slow'"
-        "FastAPI Agent Server Tests:tests/test_fastapi_agent_server.py:-m 'not slow'"
-        "Web Client Tests:tests/test_web_client.py:-m 'not slow'"
-        "Integration Tests:tests/test_integration.py:-m 'not slow'"
+        "MCP Server Tests:tests/test_mcpserver.py:"
+        "FastAPI Agent Server Tests:tests/test_fastapi_agent_server.py:"
+        "Web Client Tests:tests/test_web_client.py:"
+        "Integration Tests:tests/test_integration.py:"
     )
     
     print_status "Running individual test suites..."
@@ -112,7 +105,7 @@ main() {
     print_status "Running curl-equivalent tests..."
     total_tests=$((total_tests + 1))
     
-    if pytest tests/ -k "curl" -v --tb=short; then
+    if uv run pytest tests/ -k "curl" -v --tb=short; then
         print_success "Curl-equivalent tests completed successfully"
         passed_tests=$((passed_tests + 1))
     else
@@ -125,7 +118,7 @@ main() {
     print_status "Running async tests..."
     total_tests=$((total_tests + 1))
     
-    if pytest tests/ -k "async" -v --tb=short; then
+    if uv run pytest tests/ -k "async" -v --tb=short; then
         print_success "Async tests completed successfully"
         passed_tests=$((passed_tests + 1))
     else
@@ -138,7 +131,7 @@ main() {
     print_status "Running complete test suite..."
     total_tests=$((total_tests + 1))
     
-    if pytest tests/ --tb=short --cov=server --cov=client --cov-report=term-missing; then
+    if uv run pytest tests/ --tb=short --cov=server --cov=client --cov-report=term-missing; then
         print_success "Complete test suite passed"
         passed_tests=$((passed_tests + 1))
     else

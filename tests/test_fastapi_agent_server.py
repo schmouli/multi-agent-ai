@@ -182,6 +182,23 @@ class TestCurlCommands:
     """Test curl-equivalent commands for FastAPI server."""
 
     @pytest.fixture
+    def client(self):
+        """Create a test client for the FastAPI app."""
+        return TestClient(app)
+
+    @pytest.fixture
+    def mock_httpx_client(self):
+        """Mock httpx client for MCP server communication."""
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "result": "{'DOC001': {'name': 'Dr. Test', 'specialty': 'Cardiology', 'address': {'city': 'Atlanta', 'state': 'GA'}}}"
+        }
+        mock_client.post.return_value = mock_response
+        return mock_client
+
+    @pytest.fixture
     def base_url(self):
         """Base URL for the FastAPI server."""
         return "http://localhost:7000"

@@ -311,32 +311,133 @@ def doctor_search(state: str) -> str:
     )
 
 
+# Create FastAPI app for HTTP transport (also available for testing)
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import uvicorn
+import sys
+import os
+import json
+
+app = FastAPI(title="MCP Doctor Server")
+
+@app.get("/")
+async def mcp_server_info():
+    """Return MCP server information."""
+    return {
+        "name": "doctor-search-server",
+        "version": "1.0.0",
+        "description": "MCP server for doctor search functionality"
+    }
+
+@app.post("/")
+async def mcp_jsonrpc_handler(request: Request):
+    """Handle MCP JSON-RPC calls."""
+    try:
+        data = await request.json()
+        
+        # Check if request has required JSON-RPC fields
+        if "method" not in data:
+            return {
+                "jsonrpc": "2.0",
+                "id": data.get("id"),
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid Request - missing method field"
+                }
+            }
+        
+        method = data.get("method")
+        params = data.get("params", {})
+        request_id = data.get("id")
+        
+        if method == "tools/list":
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "tools": [
+                        {
+                            "name": "doctor_search",
+                            "description": "Search for doctors by state",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "state": {
+                                        "type": "string",
+                                        "description": "Two letter state code"
+                                    }
+                                },
+                                "required": ["state"]
+                            }
+                        }
+                    ]
+                }
+            }
+        elif method == "tools/call":
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+            
+            if tool_name == "doctor_search":
+                state = arguments.get("state", "")
+                result = doctor_search(state)
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": result
+                            }
+                        ]
+                    }
+                }
+            else:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Tool not found: {tool_name}"
+                    }
+                }
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {method}"
+                }
+            }
+    except Exception as e:
+        return {
+            "jsonrpc": "2.0",
+            "id": data.get("id") if 'data' in locals() else None,
+            "error": {
+                "code": -32603,
+                "message": f"Internal error: {str(e)}"
+            }
+        }
+
+@app.post("/doctor_search")
+async def api_doctor_search(request: dict):
+    state = request.get("state", "")
+    result = doctor_search(state)
+    return JSONResponse({"result": result})
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "MCP Doctor Server"}
+
+
 # Kick off server if file is run
 if __name__ == "__main__":
-    import sys
-    import os
-    
     # Check if we should run in HTTP mode (for Docker container)
     if os.getenv("MCP_TRANSPORT") == "http":
         port = int(os.getenv("MCP_PORT", "8333"))
         print(f"Starting MCP server on HTTP port {port}")
-        # Create a simple HTTP server using FastAPI
-        from fastapi import FastAPI
-        from fastapi.responses import JSONResponse
-        import uvicorn
-        
-        app = FastAPI(title="MCP Doctor Server")
-        
-        @app.post("/doctor_search")
-        async def api_doctor_search(request: dict):
-            state = request.get("state", "")
-            result = doctor_search(state)
-            return JSONResponse({"result": result})
-        
-        @app.get("/health")
-        async def health_check():
-            return {"status": "healthy", "service": "MCP Doctor Server"}
-        
         uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         print("Starting MCP server with stdio transport")
