@@ -15,6 +15,7 @@ dependencies = [
     "langchain-ollama>=0.3.2",
     "mcp>=1.7.1",
     "pydantic>=2.11.4",
+    "python-dotenv>=1.0.0",
     "shutup>=0.2.0",
     "smolagents[litellm,mcp,toolkit]>=1.14.0,<1.19.0",
     "uvicorn>=0.24.0",

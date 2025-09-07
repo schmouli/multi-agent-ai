@@ -6,6 +6,10 @@ import os
 from smolagents import LiteLLMModel, ToolCallingAgent
 import asyncio
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -15,10 +19,16 @@ app = FastAPI(
 )
 
 # Initialize model
+openai_api_key = os.getenv("OPENAI_API_KEY")
+print(f"🔑 OpenAI API Key status: {'Found' if openai_api_key else 'Missing'}")
+if openai_api_key:
+    print(f"🔑 API Key length: {len(openai_api_key)} characters")
+    print(f"🔑 API Key prefix: {openai_api_key[:10]}..." if len(openai_api_key) > 10 else "Key too short")
+
 try:
     model = LiteLLMModel(
         model_id="gpt-4o-mini", 
-        api_key=os.getenv("OPENAI_API_KEY")
+        api_key=openai_api_key
     )
     print("✅ LiteLLM model initialized successfully")
 except Exception as e:
