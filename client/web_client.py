@@ -24,39 +24,6 @@ class QueryResponse(BaseModel):
     error: str = None
 
 
-async def query_hospital_agent(location: str, query: str) -> str:
-    """Query the hospital agent asynchronously using direct HTTP"""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{SERVER_URL}/run_sync",
-                json={
-                    "agent": "health_agent",
-                    "input": f"I'm based in {location}. {query}",
-                },
-                timeout=30.0,
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("success") and result.get("output"):
-                    return result["output"][0]["parts"][0]["content"]
-                else:
-                    raise HTTPException(
-                        status_code=500, detail=result.get("error", "Unknown error")
-                    )
-            else:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Server error: {response.text}",
-                )
-
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
     with open("client/templates/index.html", "r") as f:
@@ -68,11 +35,35 @@ async def get_index():
 async def query(request: QueryRequest):
     """Query the hospital agent with location and health question"""
     try:
-        result = await query_hospital_agent(request.location, request.query)
-        return QueryResponse(success=True, result=result)
+        # Forward the request to the FastAPI agent server
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{SERVER_URL}/query",  # Call /query endpoint, not /run_sync
+                json={
+                    "location": request.location,
+                    "query": request.query,
+                    "agent": "hospital"  # Use valid agent
+                },
+                timeout=30.0,
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                return QueryResponse(
+                    success=result.get("success", True),
+                    result=result.get("result", "No response received")
+                )
+            else:
+                error_detail = response.text if response.text else f"HTTP {response.status_code}"
+                return QueryResponse(
+                    success=False, 
+                    error=f"Server error: {error_detail}"
+                )
+
+    except httpx.RequestError as e:
+        return QueryResponse(success=False, error=f"Connection error: {str(e)}")
     except Exception as e:
-        # Handle all exceptions gracefully, including HTTPExceptions
-        return QueryResponse(success=False, error=str(e))
+        return QueryResponse(success=False, error=f"Unexpected error: {str(e)}")
 
 
 if __name__ == "__main__":

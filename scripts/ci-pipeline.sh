@@ -1,4 +1,5 @@
 #!/bin/bash
+# filepath: /home/danny/code/multi-agent-ai/scripts/ci-pipeline.sh
 
 # CI Pipeline Script - Format, Test, Build, Deploy
 # Runs the complete development pipeline with intelligent commit messages
@@ -60,6 +61,16 @@ generate_commit_message() {
     
     if git diff --cached --name-only | grep -q "requirements\|pyproject\|package"; then
         changes="${changes}deps: update dependencies, "
+    fi
+    
+    # Check for insurance agent changes
+    if git diff --cached --name-only | grep -q "insurance_agent_server\|data/"; then
+        changes="${changes}feat: update insurance agent service, "
+    fi
+    
+    # Check for server additions
+    if git diff --cached --name-only | grep -q "server/.*\.py$"; then
+        changes="${changes}feat: update server components, "
     fi
     
     # Remove trailing comma and space
@@ -241,6 +252,12 @@ run_pipeline() {
         print_status "  ✅ Build successful"
     fi
     print_status "  ✅ Changes committed and pushed"
+    print_status ""
+    print_status "🌐 Services available:"
+    print_status "  - MCP Server: http://localhost:8333"
+    print_status "  - FastAPI Server: http://localhost:7000"
+    print_status "  - Insurance Server: http://localhost:7001"
+    print_status "  - Web Client: http://localhost:7080"
 }
 
 # Script entry point

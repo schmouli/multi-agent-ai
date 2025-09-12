@@ -4,13 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        SERVICE_TYPE: mcpserver
+        SERVICE_TYPE: mcp-server  # Changed from "mcpserver" to "mcp-server"
     image: multi-agent-ai:mcpserver
     container_name: multi-agent-mcpserver
     ports:
       - "8333:8333"
     environment:
-      - SERVICE_TYPE=mcpserver
+      - SERVICE_TYPE=mcp-server  # Changed from "mcpserver" to "mcp-server"
       - MCP_TRANSPORT=http
       - MCP_PORT=8333
     restart: unless-stopped
@@ -19,20 +19,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - multi-agent-network
 
   server:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        SERVICE_TYPE: fastapi-server
+        SERVICE_TYPE: fastapi-server  # This one is correct
     image: multi-agent-ai:server
     container_name: multi-agent-server
     ports:
       - "7000:7000"
     environment:
-      - SERVICE_TYPE=fastapi-server
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}  # Pass from environment or use default
+      - SERVICE_TYPE=fastapi-server  # This one is correct
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}
       - MCP_SERVER_URL=http://mcpserver:8333
     depends_on:
       - mcpserver
@@ -42,29 +44,60 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - multi-agent-network
+
+  insurance-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_TYPE: insurance-server  # This one is correct
+    image: multi-agent-ai:insurance-server
+    container_name: multi-agent-insurance-server
+    ports:
+      - "7002:7002"
+    environment:
+      - SERVICE_TYPE=insurance-server  # This one is correct
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost', 7002)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - multi-agent-network
 
   webclient:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        SERVICE_TYPE: webclient
+        SERVICE_TYPE: web-client  # Changed from "webclient" to "web-client"
     image: multi-agent-ai:webclient
     container_name: multi-agent-webclient
     ports:
       - "7080:7080"
     environment:
-      - SERVICE_TYPE=webclient
+      - SERVICE_TYPE=web-client  # Changed from "webclient" to "web-client"
       - SERVER_URL=http://server:7000
+      - INSURANCE_SERVER_URL=http://insurance-server:7001
     depends_on:
       - server
+      - insurance-server
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7080/docs"]
+      test: ["CMD", "curl", "-f", "http://localhost:7080/"]  # Changed from /docs to /
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - multi-agent-network
 
 networks:
-  default:
-    name: multi-agent-network
+  multi-agent-network:
+    driver: bridge

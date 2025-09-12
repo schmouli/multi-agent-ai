@@ -1,4 +1,5 @@
 #!/bin/bash
+# filepath: /home/danny/code/multi-agent-ai/scripts/build.sh
 set -e
 
 echo "Building multi-agent-ai services with docker-compose..."
@@ -41,6 +42,7 @@ echo ""
 echo "🌐 Available services:"
 echo "  - MCP Server: http://localhost:8333 (Doctor search API)"
 echo "  - FastAPI Agent Server: http://localhost:7000 (Healthcare agent API)"
+echo "  - Insurance Agent Server: http://localhost:7001 (Insurance coverage API)"
 echo "  - Web Client: http://localhost:7080 (Healthcare chat interface)"
 echo ""
 echo "📋 Useful commands:"
@@ -55,3 +57,4 @@ echo "  Rebuild specific service: $COMPOSE_CMD build [service_name]"
 echo "  Force recreate: $COMPOSE_CMD up --force-recreate -d"
 echo ""
 echo "💡 Note: Services use .env file for OPENAI_API_KEY configuration"
+echo "📄 Insurance: Place PDF policy documents in ./data/ directory for RAG indexing"

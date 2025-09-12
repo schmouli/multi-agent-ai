@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Any, Dict, Optional
 
@@ -11,14 +12,18 @@ load_dotenv()
 
 app = FastAPI(title="Healthcare Agent Server", version="1.0.0")
 
+# Server URL configuration - for internal calls
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:7000")
+
 
 class QueryRequest(BaseModel):
+    location: str
     query: str
     agent: str = "hospital"
 
 
 class QueryResponse(BaseModel):
-    response: str
+    result: str
     success: bool = True
 
 
@@ -90,30 +95,8 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
 
     # Words that should not be considered state codes even if they match
     excluded_words = {
-        "me",
-        "us",
-        "am",
-        "is",
-        "it",
-        "to",
-        "in",
-        "or",
-        "at",
-        "an",
-        "as",
-        "be",
-        "by",
-        "do",
-        "go",
-        "he",
-        "if",
-        "my",
-        "no",
-        "of",
-        "on",
-        "so",
-        "up",
-        "we",
+        "me", "us", "am", "is", "it", "to", "in", "or", "at", "an", "as", "be", "by",
+        "do", "go", "he", "if", "my", "no", "of", "on", "so", "up", "we",
     }
 
     if not prompt:
@@ -171,7 +154,10 @@ async def health_check():
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query_agent(request: QueryRequest) -> QueryResponse:
+async def query_endpoint(request: QueryRequest) -> QueryResponse:
+    """Main query endpoint that the frontend calls"""
+    print(f"Received query: {request}")
+    
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
@@ -181,12 +167,12 @@ async def query_agent(request: QueryRequest) -> QueryResponse:
         )
 
     try:
-        # Extract state from query for better search
-        state = extract_state_from_prompt(request.query)
+        # Extract state from location or query
+        state = extract_state_from_prompt(f"{request.location} {request.query}")
 
         # Forward to MCP server
         async with httpx.AsyncClient() as client:
-            mcp_url = "http://localhost:8333/"
+            mcp_url = "http://mcpserver:8333/"  # Use Docker service name
 
             # Use extracted state or default query
             search_args = {"state": state} if state else {"query": request.query}
@@ -200,15 +186,17 @@ async def query_agent(request: QueryRequest) -> QueryResponse:
                     "arguments": search_args,
                 },
             }
+            
+            print(f"Sending to MCP server: {payload}")
             mcp_response = await client.post(mcp_url, json=payload)
 
             if mcp_response.status_code == 200:
                 result = mcp_response.json()
                 if "result" in result:
                     content = result["result"]["content"][0]["text"]
-                    return QueryResponse(response=content, success=True)
+                    return QueryResponse(result=content, success=True)
                 else:
-                    return QueryResponse(response="No results found", success=False)
+                    return QueryResponse(result="No results found", success=False)
             else:
                 raise HTTPException(status_code=500, detail="MCP server error")
 
@@ -230,39 +218,6 @@ async def run_sync(request: Dict[str, Any]):
             detail=f"Invalid agent specified. Valid agents are: {', '.join(valid_agents)}",
         )
     return {"status": "completed", "agent": request["agent"]}
-
-
-async def query_hospital_agent(location: str, query: str) -> str:
-    """Query the hospital agent asynchronously using direct HTTP"""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{SERVER_URL}/run_sync",
-                json={
-                    "agent": "hospital",  # Change "health_agent" to "hospital"
-                    "input": f"I'm based in {location}. {query}",
-                },
-                timeout=30.0,
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("success") and result.get("output"):
-                    return result["output"][0]["parts"][0]["content"]
-                else:
-                    raise HTTPException(
-                        status_code=500, detail=result.get("error", "Unknown error")
-                    )
-            else:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Server error: {response.text}",
-                )
-
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

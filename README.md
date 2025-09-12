@@ -1,162 +1,482 @@
-# Multi-Agent Healthcare System
+# Multi-Agent AI Healthcare & Insurance System
 
-## Project Structure
+A comprehensive multi-agent AI system that provides healthcare information and insurance coverage assistance through intelligent agents with RAG (Retrieval-Augmented Generation) capabilities.
 
-```
-multi-agent-ai/
-├── server/                      # Server components
-│   ├── mcpserver.py            # MCP tools server
-│   └── fastapi_agent_server.py # FastAPI agent server (primary)
-├── client/                      # Client components
-│   ├── web_client.py           # FastAPI web interface
-│   └── templates/              # HTML templates
-│       └── index.html          # Web UI
-├── scripts/                    # Utility scripts
-│   ├── build.sh               # Docker build script
-│   ├── format.sh              # Code formatting script
-│   ├── test.sh                # Test runner script
-│   └── verify-config.sh       # Configuration validation
-├── tests/                      # Test files
-│   ├── test_mcpserver.py      # MCP server tests
-│   ├── test_fastapi_agent_server.py # FastAPI server tests
-│   └── test_web_client.py     # Web client tests
-├── pyproject.toml              # Project dependencies
-├── Dockerfile                  # Multi-service Docker build
-├── docker-compose.yml          # Orchestration
-├── .env.example               # Environment template
-├── .gitignore                 # Git exclusions
-└── README.md                  # This file
-```
+## 🏗️ System Architecture
 
-## Services
+The system consists of four main services:
 
-### 1. FastAPI Agent Server (`server/fastapi_agent_server.py`) - PRIMARY
-- Main agent server built with FastAPI
-- Integrates with smolagents and LiteLLM for AI responses  
-- Communicates with MCP server via HTTP for doctor search
-- Stable operation without restart loops
-- Runs on port 7000
+### 🔍 **MCP Server** (Port 8333)
+- **Purpose**: Doctor search API using Model Context Protocol
+- **Technology**: FastMCP with OpenAI integration
+- **Endpoints**: Doctor search, server information
+- **Container**: `multi-agent-mcpserver`
 
-### 2. MCP Server (`server/mcpserver.py`)
-- Standalone Model Context Protocol server
-- Provides doctor search functionality
-- Supports both HTTP and stdio transports
-- Runs on port 8333
+### 🏥 **FastAPI Agent Server** (Port 7000)
+- **Purpose**: Healthcare agent API with state extraction
+- **Technology**: FastAPI with intelligent state parsing
+- **Features**: 
+  - State code extraction from natural language
+  - Query processing and routing
+  - Integration with MCP server
+- **Container**: `multi-agent-server`
 
-### 3. Web Client (`client/web_client.py`)
-- FastAPI web interface
-- Connects directly to FastAPI agent server
-- Provides HTML form for location and health queries
-- Runs on port 7080
+### 🛡️ **Insurance Agent Server** (Port 7001)
+- **Purpose**: Insurance coverage assistant with RAG
+- **Technology**: ACP SDK with CrewAI integration
+- **Features**:
+  - PDF document ingestion for policy analysis
+  - RAG-based coverage determination
+  - CrewAI agent for intelligent responses
+  - WebSocket-based communication
+- **Container**: `multi-agent-insurance-server`
 
-## Architecture
+### 🌐 **Web Client** (Port 7080)
+- **Purpose**: Interactive chat interface
+- **Technology**: FastAPI + HTML/JavaScript
+- **Features**: Location-based healthcare queries
+- **Container**: `multi-agent-webclient`
 
-The application uses a stable three-service architecture:
-- **FastAPI Agent Server**: Main AI agent using FastAPI (replaces problematic ACP SDK)
-- **MCP Server**: Standalone tools server for doctor search functionality
-- **Web Client**: Frontend interface communicating with agent server
+## 🚀 Quick Start
 
-The MCP server (`mcpserver.py`) is automatically started as a subprocess when the main server runs, eliminating the need for separate container orchestration.
+### Prerequisites
+- Docker & Docker Compose
+- OpenAI API Key
+- Python 3.12+ (for local development)
 
-## Scripts
-
-The project includes several utility scripts in the `scripts/` directory:
-
-### Development Scripts
-- **`build.sh`** - Build Docker images for the application
-- **`test.sh`** - Run comprehensive test suite with coverage
-- **`format.sh`** - Format code with black, isort, and flake8
-- **`verify-config.sh`** - Validate Docker Compose and environment configuration
-
-### Git Scripts
-- **`merge-to-github.sh`** - Interactive script to stage, commit, and push to GitHub
-- **`quick-push.sh`** - Quick commit and push with optional message
-
-All scripts are executable and can be run from the project root:
+### 1. Clone Repository
 ```bash
-# Development
-./scripts/build.sh      # Build Docker images
-./scripts/test.sh       # Run tests
-./scripts/format.sh     # Format code
-./scripts/verify-config.sh  # Verify configuration
-
-# Git operations
-./scripts/merge-to-github.sh        # Interactive GitHub merge
-./scripts/quick-push.sh "message"   # Quick push with message
+git clone <repository-url>
+cd multi-agent-ai
 ```
 
-## Quick Start
-
-1. **Setup environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
-   ```
-
-2. **Build and run:**
-   ```bash
-   ./scripts/build.sh
-   docker-compose up
-   ```
-   
-   The docker-compose will automatically read your OpenAI API key from the `.env` file.
-
-3. **Access:**
-   - Web UI: http://localhost:7080
-   - API docs: http://localhost:7080/docs
-
-## Development
-
-Run locally with uv:
+### 2. Environment Setup
 ```bash
-# Install dependencies
-uv sync
-
-# Run FastAPI agent server
-uv run server/fastapi_agent_server.py
-
-# Run web client (in another terminal)
-uv run client/web_client.py
+# Create .env file
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
 ```
 
-## Testing
-
-The project includes comprehensive unit tests using pytest:
-
+### 3. Start All Services
 ```bash
-# Run all tests
-uv run pytest
+# Build and start all services
+docker-compose up --build
 
-# Run tests with coverage
-uv run pytest --cov=server --cov=client --cov-report=html:htmlcov
-
-# Run specific test files
-uv run pytest tests/test_mcpserver.py
-uv run pytest tests/test_fastapi_agent_server.py
-uv run pytest tests/test_web_client.py
-
-# Use the test script for comprehensive testing
-./scripts/test.sh
+# Or use the build script
+./scripts/build.sh
 ```
 
-### Test Coverage
-- **MCP Server**: Tests for doctor database, search functionality, data validation
-- **ACP Server**: Tests for health agent, server configuration, model setup
-- **Web Client**: Tests for API models, endpoints, and configuration
-- **Integration**: Tests for complete request flows
+### 4. Access Services
+- **Web Interface**: http://localhost:7080
+- **Healthcare API**: http://localhost:7000
+- **Insurance API**: ws://localhost:7001 (WebSocket)
+- **MCP Server**: http://localhost:8333
 
-View detailed coverage reports in `htmlcov/index.html` after running tests with coverage.
+## 📋 Service Management
 
-## Code Quality
+### Using Docker Compose
+```bash
+# Start all services
+docker-compose up -d
 
-The project follows strict code quality standards:
+# Stop all services
+docker-compose down
 
+# View logs
+docker-compose logs -f [service_name]
+
+# Restart specific service
+docker-compose restart [service_name]
+
+# Check service status
+docker-compose ps
+```
+
+### Using Service Manager Script
+```bash
+# Start specific service
+./scripts/service-manager.sh start insurance-server
+
+# View logs for specific service
+./scripts/service-manager.sh logs server
+
+# Show all service status
+./scripts/service-manager.sh status
+
+# List available services
+./scripts/service-manager.sh list
+```
+
+## 🔧 Development Workflow
+
+### Automated CI Pipeline
+```bash
+# Run complete pipeline (format, test, build, deploy)
+./scripts/ci-pipeline.sh
+
+# Skip specific steps
+./scripts/ci-pipeline.sh --skip-tests --skip-build
+
+# Custom commit message
+./scripts/ci-pipeline.sh -m "feat: add new feature"
+```
+
+### Individual Scripts
 ```bash
 # Format code
 ./scripts/format.sh
 
-# Or run formatters individually
-uv run black server/ client/
-uv run isort server/ client/
-uv run flake8 server/ client/
+# Run tests
+./scripts/test.sh
+
+# Build services
+./scripts/build.sh
+
+# Quick git push
+./scripts/quick-push.sh "commit message"
 ```
+
+## 📄 Insurance Document Setup
+
+The insurance agent uses RAG to analyze PDF policy documents:
+
+### 1. Add Documents
+```bash
+# Create data directory (if not exists)
+mkdir -p data
+
+# Add your PDF policy documents
+cp your_policy.pdf data/
+cp health_insurance.pdf data/
+cp dental_coverage.pdf data/
+```
+
+### 2. Supported Document Types
+- Health insurance policies
+- Dental coverage documents
+- Vision benefit plans
+- Any insurance-related PDFs
+
+### 3. Document Processing
+- Documents are automatically indexed on server startup
+- RAG tool creates embeddings for semantic search
+- Agent uses document content to answer coverage questions
+
+## 🏥 Healthcare Features
+
+### State Extraction
+The system intelligently extracts US state codes from natural language:
+
+```javascript
+// Examples that work:
+"Find doctors in CA" → "CA"
+"Looking for doctors in New York" → "NY"
+"I live in Texas" → "TX"
+"Find cardiologists in Atlanta, GA" → "GA"
+```
+
+### Supported Patterns
+- Full state names: "California", "New York", "Texas"
+- State codes: "CA", "NY", "TX"
+- Common phrases: "in CA", "doctors in NY", "live in TX"
+- Location context: "Atlanta, GA", "Miami, FL"
+
+### Query Processing
+1. **Input**: Natural language query with location
+2. **Processing**: State extraction and query parsing
+3. **Routing**: Forward to appropriate MCP server endpoint
+4. **Response**: Formatted healthcare information
+
+## 🧪 Testing
+
+### Run All Tests
+```bash
+# Using test script
+./scripts/test.sh
+
+# Using pytest directly
+python -m pytest tests/ -v
+
+# Run specific test file
+python -m pytest tests/test_fastapi_agent_server.py -v
+```
+
+### Test Coverage
+- **FastAPI Agent Server**: State extraction, endpoint validation
+- **MCP Server**: Doctor search functionality
+- **Web Client**: UI interaction and API integration
+- **Insurance Server**: RAG processing and agent responses
+
+## 📚 API Documentation
+
+### Healthcare Agent API (Port 7000)
+
+#### Health Check
+```bash
+curl http://localhost:7000/health
+```
+
+#### Query Healthcare Information
+```bash
+curl -X POST http://localhost:7000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "Atlanta, GA",
+    "query": "Find cardiologists near me",
+    "agent": "hospital"
+  }'
+```
+
+### Insurance Agent API (Port 7002)
+
+The insurance agent uses WebSocket communication through the ACP SDK:
+
+#### Connect via WebSocket
+```javascript
+// WebSocket connection example
+const ws = new WebSocket('ws://localhost:7002');
+
+ws.onopen = function() {
+    // Send insurance query
+    ws.send(JSON.stringify({
+        type: "message",
+        content: "Is dental cleaning covered under my policy?"
+    }));
+};
+
+ws.onmessage = function(event) {
+    const response = JSON.parse(event.data);
+    console.log('Insurance agent response:', response);
+};
+```
+
+#### Health Check
+```bash
+# Check if service is running (socket connection test)
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 7001)); s.close(); print('Insurance server is running')"
+```
+
+### MCP Server API (Port 8333)
+
+#### Server Information
+```bash
+curl http://localhost:8333/
+```
+
+#### Doctor Search
+```bash
+curl -X POST http://localhost:8333/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "doctor_search",
+      "arguments": {"state": "CA"}
+    }
+  }'
+```
+
+## 🔨 Development Setup
+
+### Local Development
+```bash
+# Install dependencies
+uv sync
+
+# Run specific service locally
+uv run python server/fastapi_agent_server.py
+uv run python server/mcpserver.py
+uv run python server/insurance_agent_server.py
+uv run python client/web_client.py
+```
+
+### Code Quality
+```bash
+# Format code
+black . --line-length 88
+isort . --profile black
+
+# Type checking
+mypy server/ client/
+
+# Linting
+flake8 server/ client/
+```
+
+## 🐳 Docker Configuration
+
+### Build Arguments
+- `SERVICE_TYPE`: Determines which service to run
+  - `mcp-server`: MCP server
+  - `fastapi-server`: Healthcare agent server
+  - `insurance-server`: Insurance agent server
+  - `web-client`: Web interface
+
+### Environment Variables
+- `OPENAI_API_KEY`: Required for all AI services
+- `SERVICE_TYPE`: Service routing in entrypoint
+- `SERVER_URL`: Backend server URL for web client
+- `INSURANCE_SERVER_URL`: Insurance server URL for web client
+- `MCP_SERVER_URL`: MCP server URL for FastAPI server
+
+### Health Checks
+Services include health checks for monitoring:
+- **MCP Server**: HTTP health endpoint
+- **FastAPI Server**: HTTP health endpoint
+- **Web Client**: HTTP health endpoint
+- **Insurance Server**: Socket connection test
+- **Interval**: 30 seconds
+- **Timeout**: 10 seconds
+- **Retries**: 3 attempts
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### Service Won't Start
+```bash
+# Check logs
+docker-compose logs [service_name]
+
+# Rebuild service
+docker-compose build [service_name]
+
+# Force recreate
+docker-compose up --force-recreate [service_name]
+```
+
+#### Health Check Failures
+```bash
+# Check if service is responding
+curl http://localhost:[port]/health  # For HTTP services
+
+# Test socket connection for insurance server
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 7001)); s.close()"
+
+# Verify environment variables
+docker-compose exec [service_name] env
+
+# Check port binding
+docker-compose ps
+```
+
+#### Insurance Server Issues
+```bash
+# Verify PDF documents are mounted
+docker-compose exec insurance-server ls -la /app/data/
+
+# Check OpenAI API key
+docker-compose exec insurance-server echo $OPENAI_API_KEY
+
+# View detailed logs
+docker-compose logs -f insurance-server
+
+# Test WebSocket connection
+wscat -c ws://localhost:7001
+```
+
+### Network Issues
+```bash
+# Check network connectivity
+docker network ls
+docker network inspect multi-agent-ai_multi-agent-network
+
+# Test inter-service communication
+docker-compose exec webclient curl http://server:7000/health
+```
+
+## 📝 Contributing
+
+### Code Style
+- **Python**: Black formatting (88 character line length)
+- **Imports**: isort with black profile
+- **Type Hints**: Required for all functions
+- **Documentation**: Docstrings for all public functions
+
+### Git Workflow
+```bash
+# Use CI pipeline for automated workflow
+./scripts/ci-pipeline.sh
+
+# Manual workflow
+git add .
+git commit -m "feat: description of changes"
+git push origin main
+```
+
+### Testing Requirements
+- All new features must include tests
+- Tests must pass before merging
+- Maintain test coverage above 80%
+
+## 📈 Monitoring & Observability
+
+### Service Health
+```bash
+# Check all service status
+./scripts/service-manager.sh status
+
+# Individual service health
+curl http://localhost:7000/health  # Healthcare
+curl http://localhost:8333/health  # MCP
+curl http://localhost:7080/        # Web Client
+
+# Insurance server (socket test)
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 7001)); s.close(); print('OK')"
+```
+
+### Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f [service_name]
+
+# Follow logs with timestamps
+docker-compose logs -f -t [service_name]
+```
+
+## 🚀 Production Deployment
+
+### Environment Configuration
+```bash
+# Production .env example
+OPENAI_API_KEY=prod_api_key_here
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+```
+
+### Scaling
+```bash
+# Scale specific services
+docker-compose up --scale server=2 --scale insurance-server=2
+```
+
+### Security Considerations
+- Use proper OpenAI API key management
+- Configure network security groups
+- Enable SSL/TLS for production deployments
+- Regular security updates for base images
+- Secure WebSocket connections for insurance server
+
+## 📚 Additional Resources
+
+- **FastAPI Documentation**: https://fastapi.tiangolo.com/
+- **CrewAI Documentation**: https://docs.crewai.com/
+- **ACP SDK Documentation**: [Add ACP SDK docs link]
+- **Docker Compose Reference**: https://docs.docker.com/compose/
+- **OpenAI API Reference**: https://platform.openai.com/docs/
+
+## 📄 License
+
+[Add your license information here]
+
+## 🤝 Support
+
+For issues and questions:
+1. Check the troubleshooting section
+2. Review service logs
+3. Create an issue with detailed information
+4. Include docker-compose logs and error messages
