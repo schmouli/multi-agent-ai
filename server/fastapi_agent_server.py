@@ -222,11 +222,47 @@ async def query_agent(request: QueryRequest) -> QueryResponse:
 
 @app.post("/run_sync")
 async def run_sync(request: Dict[str, Any]):
+    print(f"Received payload: {request}")  # Log the payload
     valid_agents = ["hospital", "doctor"]
     if "agent" not in request or request["agent"] not in valid_agents:
-        raise HTTPException(status_code=400, detail="Invalid agent specified")
-
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid agent specified. Valid agents are: {', '.join(valid_agents)}",
+        )
     return {"status": "completed", "agent": request["agent"]}
+
+
+async def query_hospital_agent(location: str, query: str) -> str:
+    """Query the hospital agent asynchronously using direct HTTP"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{SERVER_URL}/run_sync",
+                json={
+                    "agent": "hospital",  # Change "health_agent" to "hospital"
+                    "input": f"I'm based in {location}. {query}",
+                },
+                timeout=30.0,
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success") and result.get("output"):
+                    return result["output"][0]["parts"][0]["content"]
+                else:
+                    raise HTTPException(
+                        status_code=500, detail=result.get("error", "Unknown error")
+                    )
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Server error: {response.text}",
+                )
+
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
