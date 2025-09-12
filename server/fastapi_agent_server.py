@@ -1,210 +1,235 @@
+import re
+from typing import Any, Dict, Optional
+
+import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
-import httpx
-import os
-from smolagents import LiteLLMModel, ToolCallingAgent
-import asyncio
-import uvicorn
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Hospital Agent Server",
-    description="FastAPI-based agent server for hospital health queries",
-    version="1.0.0"
-)
+app = FastAPI(title="Healthcare Agent Server", version="1.0.0")
 
-# Initialize model
-openai_api_key = os.getenv("OPENAI_API_KEY")
-print(f"🔑 OpenAI API Key status: {'Found' if openai_api_key else 'Missing'}")
-if openai_api_key:
-    print(f"🔑 API Key length: {len(openai_api_key)} characters")
-    print(f"🔑 API Key prefix: {openai_api_key[:10]}..." if len(openai_api_key) > 10 else "Key too short")
 
-try:
-    model = LiteLLMModel(
-        model_id="gpt-4o-mini", 
-        api_key=openai_api_key
-    )
-    print("✅ LiteLLM model initialized successfully")
-except Exception as e:
-    print(f"⚠️ Warning: Could not initialize LiteLLM model: {e}")
-    model = None
+class QueryRequest(BaseModel):
+    query: str
+    agent: str = "hospital"
 
-# MCP server configuration
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcpserver:8333")
 
-# Request/Response models
-class MessagePart(BaseModel):
-    content: str
+class QueryResponse(BaseModel):
+    response: str
+    success: bool = True
 
-class Message(BaseModel):
-    parts: List[MessagePart]
 
-class AgentRequest(BaseModel):
-    agent: str
-    input: str
+def extract_state_from_prompt(prompt: str) -> Optional[str]:
+    """Extract US state code from user prompt.
 
-class AgentResponse(BaseModel):
-    success: bool
-    output: List[Message]
-    error: Optional[str] = None
+    Args:
+        prompt: User input text
 
-async def extract_state_from_prompt(prompt: str) -> str:
-    """Extract state from user prompt"""
-    import re
-    
-    # Look for state abbreviations
-    state_match = re.search(r'\b([A-Z]{2})\b', prompt)
-    if not state_match:
-        # Try common state names to abbreviations
-        state_names = {
-            'georgia': 'GA', 'california': 'CA', 'texas': 'TX', 
-            'florida': 'FL', 'new york': 'NY', 'atlanta': 'GA',
-            'los angeles': 'CA', 'houston': 'TX', 'miami': 'FL'
-        }
-        for name, abbr in state_names.items():
-            if name.lower() in prompt.lower():
-                return abbr
-        return "GA"  # Default to Georgia
-    else:
-        return state_match.group(0)
+    Returns:
+        Two-letter state code if found, None otherwise
+    """
+    # State name to code mapping (complete list)
+    state_names = {
+        "california": "CA",
+        "texas": "TX",
+        "florida": "FL",
+        "new york": "NY",
+        "pennsylvania": "PA",
+        "illinois": "IL",
+        "ohio": "OH",
+        "georgia": "GA",
+        "north carolina": "NC",
+        "michigan": "MI",
+        "new jersey": "NJ",
+        "virginia": "VA",
+        "washington": "WA",
+        "arizona": "AZ",
+        "massachusetts": "MA",
+        "tennessee": "TN",
+        "indiana": "IN",
+        "missouri": "MO",
+        "maryland": "MD",
+        "wisconsin": "WI",
+        "colorado": "CO",
+        "minnesota": "MN",
+        "south carolina": "SC",
+        "alabama": "AL",
+        "louisiana": "LA",
+        "kentucky": "KY",
+        "oregon": "OR",
+        "oklahoma": "OK",
+        "connecticut": "CT",
+        "utah": "UT",
+        "iowa": "IA",
+        "nevada": "NV",
+        "arkansas": "AR",
+        "mississippi": "MS",
+        "kansas": "KS",
+        "new mexico": "NM",
+        "nebraska": "NE",
+        "west virginia": "WV",
+        "idaho": "ID",
+        "hawaii": "HI",
+        "new hampshire": "NH",
+        "maine": "ME",
+        "montana": "MT",
+        "rhode island": "RI",
+        "delaware": "DE",
+        "south dakota": "SD",
+        "north dakota": "ND",
+        "alaska": "AK",
+        "vermont": "VT",
+        "wyoming": "WY",
+    }
 
-async def get_doctor_data(state: str) -> Optional[str]:
-    """Get doctor data from MCP server"""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{MCP_SERVER_URL}/doctor_search",
-                json={"state": state},
-                timeout=10.0
-            )
-            
-            if response.status_code == 200:
-                return response.json()["result"]
-            else:
-                print(f"MCP server error: {response.status_code}")
-                return None
-                
-    except Exception as e:
-        print(f"Error connecting to MCP server: {e}")
+    # Valid state codes for validation
+    valid_state_codes = set(state_names.values())
+
+    # Words that should not be considered state codes even if they match
+    excluded_words = {
+        "me",
+        "us",
+        "am",
+        "is",
+        "it",
+        "to",
+        "in",
+        "or",
+        "at",
+        "an",
+        "as",
+        "be",
+        "by",
+        "do",
+        "go",
+        "he",
+        "if",
+        "my",
+        "no",
+        "of",
+        "on",
+        "so",
+        "up",
+        "we",
+    }
+
+    if not prompt:
         return None
 
-async def health_agent_logic(prompt: str) -> str:
-    """Core health agent logic"""
-    try:
-        # Extract state from prompt
-        state = await extract_state_from_prompt(prompt)
-        print(f"Extracted state: {state} from prompt: {prompt[:50]}...")
-        
-        # Get doctor data
-        doctor_data = await get_doctor_data(state)
-        
-        if doctor_data:
-            # Create enhanced prompt with doctor data
-            enhanced_prompt = f"""
-User query: {prompt}
+    prompt_lower = prompt.lower()
 
-Available doctors in {state}: {doctor_data}
+    # Check for full state names first (longer matches first)
+    # Sort by length descending to match longer names first
+    sorted_states = sorted(state_names.items(), key=lambda x: len(x[0]), reverse=True)
+    for state_name, state_code in sorted_states:
+        if state_name in prompt_lower:
+            return state_code
 
-Please provide a helpful response about healthcare options based on the user's query and the available doctor information.
-"""
-            if model:
-                agent = ToolCallingAgent(tools=[], model=model)
-                response = agent.run(enhanced_prompt)
-                return str(response)
-            else:
-                return f"Found doctors in {state}: {doctor_data[:200]}... (AI assistant temporarily unavailable)"
-        else:
-            # MCP server error, provide general response
-            if model:
-                agent = ToolCallingAgent(tools=[], model=model)
-                response = agent.run(f"Healthcare query: {prompt}. Please provide general healthcare guidance.")
-                return str(response)
-            else:
-                return "Healthcare query received. Our doctor database is temporarily unavailable."
-                
-    except Exception as e:
-        return f"I received your healthcare question: '{prompt}'. I'm currently experiencing technical difficulties. Please try again later. (Error: {str(e)})"
+    # Check for state code patterns - look for 2-letter codes
+    # More specific patterns to avoid false matches
+    state_code_patterns = [
+        r"\bin\s+([A-Z]{2})\b",  # "in CA", "in NY"
+        r"\bfrom\s+([A-Z]{2})\b",  # "from CA", "from NY"
+        r"\bstate\s+([A-Z]{2})\b",  # "state CA", "state NY"
+        r"\bof\s+([A-Z]{2})\b",  # "state of CA"
+        r"\blive\s+in\s+([A-Z]{2})\b",  # "live in CA"
+        r"\bdoctors?\s+in\s+([A-Z]{2})\b",  # "doctors in CA"
+        r"\b([A-Z]{2})\s+doctors?\b",  # "CA doctors"
+        r"\b([A-Z]{2})\s+area\b",  # "CA area"
+        r"\b([A-Z]{2})\s+state\b",  # "CA state"
+    ]
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "service": "Hospital Agent Server",
-        "status": "running",
-        "mcp_server": MCP_SERVER_URL,
-        "model_available": model is not None
-    }
+    prompt_upper = prompt.upper()
+
+    for pattern in state_code_patterns:
+        matches = re.findall(pattern, prompt_upper)
+        for match in matches:
+            if match in valid_state_codes and match.lower() not in excluded_words:
+                return match
+
+    # Last resort: standalone state codes at word boundaries
+    # But only if they're not common English words
+    standalone_pattern = r"\b([A-Z]{2})\b"
+    matches = re.findall(standalone_pattern, prompt_upper)
+    for match in matches:
+        if (
+            match in valid_state_codes
+            and match.lower() not in excluded_words
+            and len(prompt.split()) <= 5
+        ):  # Only for short prompts to avoid false positives
+            return match
+
+    return None
+
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    mcp_status = "unknown"
+    return {"status": "healthy", "service": "healthcare-agent-server"}
+
+
+@app.post("/query", response_model=QueryResponse)
+async def query_agent(request: QueryRequest) -> QueryResponse:
+    if not request.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    if request.agent not in ["hospital", "doctor"]:
+        raise HTTPException(
+            status_code=400, detail="Agent must be 'hospital' or 'doctor'"
+        )
+
     try:
+        # Extract state from query for better search
+        state = extract_state_from_prompt(request.query)
+
+        # Forward to MCP server
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{MCP_SERVER_URL}/health", timeout=5.0)
-            mcp_status = "healthy" if response.status_code == 200 else "unhealthy"
-    except:
-        mcp_status = "unreachable"
-    
-    return {
-        "status": "healthy",
-        "service": "Hospital Agent Server",
-        "mcp_server": mcp_status,
-        "model_available": model is not None
-    }
+            mcp_url = "http://localhost:8333/"
 
-@app.post("/run_sync", response_model=AgentResponse)
-async def run_agent_sync(request: AgentRequest):
-    """Run agent synchronously - compatible with ACP SDK client interface"""
-    if request.agent != "health_agent":
-        raise HTTPException(status_code=400, detail=f"Unknown agent: {request.agent}")
-    
-    try:
-        # Process the request
-        result = await health_agent_logic(request.input)
-        
-        # Return in ACP-compatible format
-        return AgentResponse(
-            success=True,
-            output=[Message(parts=[MessagePart(content=result)])]
-        )
-        
-    except Exception as e:
-        return AgentResponse(
-            success=False,
-            output=[],
-            error=str(e)
-        )
+            # Use extracted state or default query
+            search_args = {"state": state} if state else {"query": request.query}
 
-@app.post("/query")
-async def direct_query(request: dict):
-    """Direct query endpoint for simple testing"""
-    prompt = request.get("query", "")
-    if not prompt:
-        raise HTTPException(status_code=400, detail="Missing 'query' field")
-    
-    try:
-        result = await health_agent_logic(prompt)
-        return {"success": True, "result": result}
-        
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "doctor_search",
+                    "arguments": search_args,
+                },
+            }
+            mcp_response = await client.post(mcp_url, json=payload)
+
+            if mcp_response.status_code == 200:
+                result = mcp_response.json()
+                if "result" in result:
+                    content = result["result"]["content"][0]["text"]
+                    return QueryResponse(response=content, success=True)
+                else:
+                    return QueryResponse(response="No results found", success=False)
+            else:
+                raise HTTPException(status_code=500, detail="MCP server error")
+
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503, detail=f"Cannot connect to MCP server: {str(e)}"
+        )
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/run_sync")
+async def run_sync(request: Dict[str, Any]):
+    valid_agents = ["hospital", "doctor"]
+    if "agent" not in request or request["agent"] not in valid_agents:
+        raise HTTPException(status_code=400, detail="Invalid agent specified")
+
+    return {"status": "completed", "agent": request["agent"]}
+
 
 if __name__ == "__main__":
-    print("🚀 Starting FastAPI Hospital Agent Server...")
-    print(f"📍 MCP Server: {MCP_SERVER_URL}")
-    print(f"🤖 Model Available: {model is not None}")
-    
-    # Run server
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=7000,
-        log_level="info"
-    )
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=7000)

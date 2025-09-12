@@ -1,28 +1,48 @@
 #!/bin/bash
 
-# 🚀 Quick GitHub Push Script
-# Simple script for quick commits and pushes
+# Enhanced Quick Push Script - accepts custom commit message
+# Usage: ./enhanced-quick-push.sh [commit-message]
 
 set -e
 
-# Colors
+# Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-cd "$(dirname "$0")/.."
+print_status() {
+    echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
+}
 
-# Quick commit with timestamp if no message provided
-if [ -z "$1" ]; then
-    COMMIT_MESSAGE="Update $(date '+%Y-%m-%d %H:%M')"
-else
-    COMMIT_MESSAGE="$1"
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+# Get commit message from parameter or use default
+COMMIT_MESSAGE="${1:-chore: quick update}"
+
+# Get current branch
+CURRENT_BRANCH=$(git branch --show-current)
+
+print_status "Committing and pushing changes..."
+print_status "Branch: $CURRENT_BRANCH"
+print_status "Message: $COMMIT_MESSAGE"
+
+# Add all changes
+git add .
+
+# Check if there are changes to commit
+if git diff --cached --quiet; then
+    print_status "No changes to commit"
+    exit 0
 fi
 
-echo -e "${BLUE}🚀 Quick push: ${COMMIT_MESSAGE}${NC}"
-
-git add .
+# Commit changes
 git commit -m "$COMMIT_MESSAGE"
-git push origin "$(git branch --show-current)"
+print_success "Changes committed"
 
-echo -e "${GREEN}✅ Pushed to GitHub!${NC}"
+# Push to remote
+git push origin "$CURRENT_BRANCH"
+print_success "Changes pushed to $CURRENT_BRANCH"
+
+print_success "Quick push completed!"

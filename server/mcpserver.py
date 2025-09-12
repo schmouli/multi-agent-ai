@@ -1,6 +1,22 @@
+import os
+
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("doctorserver")
+# Load environment variables
+load_dotenv()
+
+# Debug: Print API key info
+api_key = os.getenv("OPENAI_API_KEY", "")
+print(
+    f"API Key loaded: {api_key[:20]}..."
+    f"{api_key[-4:] if len(api_key) > 24 else 'SHORT_KEY'}"
+)
+
+mcp = FastMCP("doctor-search-server")
 
 doctors = {
     "DOC001": {
@@ -215,9 +231,7 @@ doctors = {
             "Rush University Medical Center",
         ],
         "education": {
-            "medical_school": (
-                "Northwestern University Feinberg School " "of Medicine"
-            ),
+            "medical_school": "Northwestern University Feinberg School of Medicine",
             "residency": "Cook County Hospital",
             "fellowship": None,
         },
@@ -312,120 +326,114 @@ def doctor_search(state: str) -> str:
 
 
 # Create FastAPI app for HTTP transport (also available for testing)
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-import uvicorn
-import sys
-import os
-import json
+app = FastAPI(
+    title="Healthcare MCP Server",
+    version="1.0.0",
+    description="MCP server providing healthcare tools",
+)
 
-app = FastAPI(title="MCP Doctor Server")
 
 @app.get("/")
-async def mcp_server_info():
+async def get_server_info():
     """Return MCP server information."""
     return {
         "name": "doctor-search-server",
         "version": "1.0.0",
-        "description": "MCP server for doctor search functionality"
+        "description": "Healthcare MCP Server",
     }
 
+
 @app.post("/")
-async def mcp_jsonrpc_handler(request: Request):
+async def handle_jsonrpc(request: Request):
     """Handle MCP JSON-RPC calls."""
     try:
-        data = await request.json()
-        
-        # Check if request has required JSON-RPC fields
-        if "method" not in data:
-            return {
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=200,
+            content={
                 "jsonrpc": "2.0",
-                "id": data.get("id"),
+                "id": None,
                 "error": {
                     "code": -32600,
-                    "message": "Invalid Request - missing method field"
-                }
-            }
-        
-        method = data.get("method")
-        params = data.get("params", {})
-        request_id = data.get("id")
-        
-        if method == "tools/list":
+                    "message": "Invalid Request",
+                },
+            },
+        )
+
+    # Check if request has required JSON-RPC fields
+    if "method" not in body:
+        return {
+            "jsonrpc": "2.0",
+            "id": body.get("id"),
+            "error": {
+                "code": -32600,
+                "message": "Invalid Request - missing method field",
+            },
+        }
+
+    method = body.get("method")
+    params = body.get("params", {})
+    request_id = body.get("id")
+
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "tools": [
+                    {
+                        "name": "doctor_search",
+                        "description": "Search for doctors by state",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "state": {
+                                    "type": "string",
+                                    "description": "Two letter state code",
+                                }
+                            },
+                            "required": ["state"],
+                        },
+                    }
+                ]
+            },
+        }
+    elif method == "tools/call":
+        tool_name = params.get("name")
+        arguments = params.get("arguments", {})
+
+        if tool_name == "doctor_search":
+            state = arguments.get("state", "")
+            result = doctor_search(state)
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "result": {
-                    "tools": [
-                        {
-                            "name": "doctor_search",
-                            "description": "Search for doctors by state",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "state": {
-                                        "type": "string",
-                                        "description": "Two letter state code"
-                                    }
-                                },
-                                "required": ["state"]
-                            }
-                        }
-                    ]
-                }
+                "result": {"content": [{"type": "text", "text": result}]},
             }
-        elif method == "tools/call":
-            tool_name = params.get("name")
-            arguments = params.get("arguments", {})
-            
-            if tool_name == "doctor_search":
-                state = arguments.get("state", "")
-                result = doctor_search(state)
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": result
-                            }
-                        ]
-                    }
-                }
-            else:
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "error": {
-                        "code": -32601,
-                        "message": f"Tool not found: {tool_name}"
-                    }
-                }
         else:
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "error": {
                     "code": -32601,
-                    "message": f"Method not found: {method}"
-                }
+                    "message": f"Tool not found: {tool_name}",
+                },
             }
-    except Exception as e:
+    else:
         return {
             "jsonrpc": "2.0",
-            "id": data.get("id") if 'data' in locals() else None,
-            "error": {
-                "code": -32603,
-                "message": f"Internal error: {str(e)}"
-            }
+            "id": request_id,
+            "error": {"code": -32601, "message": f"Method not found: {method}"},
         }
+
 
 @app.post("/doctor_search")
 async def api_doctor_search(request: dict):
     state = request.get("state", "")
     result = doctor_search(state)
     return JSONResponse({"result": result})
+
 
 @app.get("/health")
 async def health_check():
@@ -434,11 +442,4 @@ async def health_check():
 
 # Kick off server if file is run
 if __name__ == "__main__":
-    # Check if we should run in HTTP mode (for Docker container)
-    if os.getenv("MCP_TRANSPORT") == "http":
-        port = int(os.getenv("MCP_PORT", "8333"))
-        print(f"Starting MCP server on HTTP port {port}")
-        uvicorn.run(app, host="0.0.0.0", port=port)
-    else:
-        print("Starting MCP server with stdio transport")
-        mcp.run()
+    uvicorn.run(app, host="0.0.0.0", port=8333)

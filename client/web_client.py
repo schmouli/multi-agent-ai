@@ -1,8 +1,9 @@
+import os
+
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-import os
-import httpx
 
 app = FastAPI(
     title="Hospital Agent Client", description="Web client for hospital agent queries"
@@ -31,20 +32,25 @@ async def query_hospital_agent(location: str, query: str) -> str:
                 f"{SERVER_URL}/run_sync",
                 json={
                     "agent": "health_agent",
-                    "input": f"I'm based in {location}. {query}"
+                    "input": f"I'm based in {location}. {query}",
                 },
-                timeout=30.0
+                timeout=30.0,
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success") and result.get("output"):
                     return result["output"][0]["parts"][0]["content"]
                 else:
-                    raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+                    raise HTTPException(
+                        status_code=500, detail=result.get("error", "Unknown error")
+                    )
             else:
-                raise HTTPException(status_code=response.status_code, detail=f"Server error: {response.text}")
-                
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Server error: {response.text}",
+                )
+
     except httpx.RequestError as e:
         raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
     except Exception as e:
