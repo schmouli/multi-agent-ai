@@ -116,5 +116,31 @@ async def policy_agent(input: list[Message], context: Context) -> AsyncGenerator
         yield Message(parts=[MessagePart(content=f"Error processing your query: {str(e)}")])
 
 if __name__ == "__main__":
+    logger.info("=== Insurance Agent Server Starting ===")
+    logger.info(f"Working directory: {os.getcwd()}")
+    
+    if openai.api_key:
+        logger.info("OpenAI API key found and configured")
+    else:
+        logger.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
+    
+    logger.info(f"Using OpenAI API key: {openai.api_key[:4]}************")
+    
+    logger.info(f"OpenAILLM initialized with model: {llm_adapter.model}, max_tokens: {llm_adapter.max_tokens}, temperature: {llm_adapter.temperature}")
+    
+    if data_dir.exists():
+        pdf_files = list(data_dir.glob("*.pdf"))
+        
+        if pdf_files:
+            logger.info(f"Found {len(pdf_files)} PDF files in data directory")
+            for i, pdf_file in enumerate(pdf_files, start=1):
+                logger.info(f"Processing PDF {i}/{len(pdf_files)}: {pdf_file.name}")
+                rag_tool.add(str(pdf_file), data_type="pdf_file")
+                logger.info(f"Successfully added PDF: {pdf_file.name}")
+        else:
+            logger.warning("No PDF files found in /app/data directory")
+    else:
+        logger.warning("/app/data directory does not exist")
+    
     logger.info("Starting Insurance Agent Server on port 7001...")
     server.run(port=7001)

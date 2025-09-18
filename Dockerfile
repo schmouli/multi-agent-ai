@@ -1,8 +1,4 @@
-# Multi-stage Dockerfile for multi-agent-ai project
-FROM python:3.12-slim AS base
-
-# Set working directory
-WORKDIR /app
+FROM python:3.12-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,29 +6,30 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Set working directory
+WORKDIR /app
 
-# Install dependencies
-RUN uv sync --frozen
-
-# Copy entrypoint script first
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# Copy source code
+# Copy all files
 COPY . .
 
-# Build argument to determine which service to run
-ARG SERVICE_TYPE=fastapi-server
-ENV SERVICE_TYPE=${SERVICE_TYPE}
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
 
-# Expose ports based on service type
-# Port 7080 for web client, 7000 for FastAPI server, 8333 for MCP server
-EXPOSE 7080 7000 8333
+# Create .venv directory
+RUN uv venv
 
-# Set entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Set environment variables - CORRECTED PATHS
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app:/app/server:$PYTHONPATH"
+
+# Default service type
+ARG SERVICE_TYPE=web-client
+ENV SERVICE_TYPE=$SERVICE_TYPE
+
+# Expose common ports
+EXPOSE 7000 7001 7080 7500 8333
+
+# Run entrypoint
+CMD ["./entrypoint.sh"]

@@ -112,3 +112,8 @@ datasets/
 # FastAPI/Flask
 instance/
 .webassets-cache
+crewai-rag-tool.lock
+*.lock
+__pycache__/
+*.pyc
+.pytest_cache/

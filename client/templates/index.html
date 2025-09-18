@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hospital Agent Client</title>
+    <title>AI Healthcare & Insurance Assistant</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3ccircle cx='50' cy='50' r='45' fill='%233b82f6'/%3e%3cpath d='M35 50h30M50 35v30' stroke='white' stroke-width='8' stroke-linecap='round'/%3e%3c/svg%3e">
     <style>
         * {
@@ -47,6 +47,46 @@
         .chat-header p {
             color: #bfdbfe;
             font-size: 14px;
+        }
+        
+        .agent-selector {
+            background: #0f172a;
+            padding: 15px 20px;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .agent-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+        
+        .agent-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .agent-btn {
+            padding: 8px 16px;
+            border: 2px solid #374151;
+            border-radius: 20px;
+            background: #1f2937;
+            color: #e2e8f0;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .agent-btn.active {
+            border-color: #3b82f6;
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .agent-btn:hover {
+            border-color: #60a5fa;
         }
         
         .chat-messages {
@@ -133,6 +173,20 @@
             background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
             color: white;
         }
+        
+        .agent-info {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            display: inline-block;
+        }
+        
+        .confidence-high { color: #10b981; }
+        .confidence-medium { color: #f59e0b; }
+        .confidence-low { color: #ef4444; }
         
         .typing-indicator {
             display: none;
@@ -296,28 +350,87 @@
         .welcome-message li {
             margin-bottom: 5px;
         }
+        
+        .agent-examples {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .agent-example {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 3px solid;
+        }
+        
+        .health-example {
+            border-left-color: #10b981;
+        }
+        
+        .insurance-example {
+            border-left-color: #f59e0b;
+        }
+        
+        .agent-example h4 {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .agent-example ul {
+            margin-left: 15px;
+        }
+        
+        .agent-example li {
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🏥 Healthcare AI Assistant</h1>
-            <p>Find doctors and get healthcare information instantly</p>
+            <h1>🏥💼 AI Healthcare & Insurance Assistant</h1>
+            <p>Intelligent routing to specialized agents for your health and insurance needs</p>
+        </div>
+        
+        <div class="agent-selector">
+            <label>Choose agent type (or let AI decide automatically):</label>
+            <div class="agent-buttons">
+                <button class="agent-btn active" data-agent="auto">🤖 Auto-Select</button>
+                <button class="agent-btn" data-agent="doctor">🏥 Health/Doctor</button>
+                <button class="agent-btn" data-agent="insurance">💼 Insurance</button>
+            </div>
         </div>
         
         <div class="chat-messages" id="chatMessages">
             <div class="message bot">
                 <div class="message-avatar">🤖</div>
                 <div class="message-content welcome-message">
-                    <h3>Welcome! I'm your Healthcare AI Assistant</h3>
-                    <p>I can help you find doctors, specialists, and healthcare providers in your area. Just tell me your location and what kind of medical help you're looking for!</p>
-                    <br>
-                    <p><strong>Examples:</strong></p>
-                    <ul>
-                        <li>"Find cardiologists near me"</li>
-                        <li>"I need a dentist in my area"</li>
-                        <li>"Are there any pediatricians nearby?"</li>
-                    </ul>
+                    <h3>Welcome! I'm your AI Assistant with specialized agents</h3>
+                    <p>I use intelligent routing to connect you with the right specialist for your needs. Choose an agent type above or let me decide automatically!</p>
+                    
+                    <div class="agent-examples">
+                        <div class="agent-example health-example">
+                            <h4>🏥 Health & Medical</h4>
+                            <ul>
+                                <li>"Find cardiologists near me"</li>
+                                <li>"I need a pediatrician"</li>
+                                <li>"Symptoms of diabetes"</li>
+                                <li>"Best hospital in my area"</li>
+                            </ul>
+                        </div>
+                        <div class="agent-example insurance-example">
+                            <h4>💼 Insurance Coverage</h4>
+                            <ul>
+                                <li>"Is dental cleaning covered?"</li>
+                                <li>"What's my deductible?"</li>
+                                <li>"Coverage for MRI scan?"</li>
+                                <li>"In-network providers"</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -336,7 +449,7 @@
         <div class="chat-input-container">
             <input type="text" id="locationInput" class="location-input" placeholder="📍 Your location (e.g., Atlanta, GA)" required>
             <form class="chat-input-form" id="chatForm">
-                <textarea id="messageInput" class="chat-input" placeholder="Ask me about doctors or healthcare providers..." required rows="1"></textarea>
+                <textarea id="messageInput" class="chat-input" placeholder="Ask me about healthcare or insurance..." required rows="1"></textarea>
                 <button type="submit" class="send-button" id="sendButton">Send</button>
             </form>
         </div>
@@ -344,6 +457,7 @@
         <div class="api-links">
             <a href="/docs" target="_blank">📚 API Docs</a>
             <a href="/redoc" target="_blank">📖 ReDoc</a>
+            <a href="/agents/status" target="_blank">🔍 Agent Status</a>
         </div>
     </div>
 
@@ -354,6 +468,19 @@
         const sendButton = document.getElementById('sendButton');
         const typingIndicator = document.getElementById('typingIndicator');
         const chatForm = document.getElementById('chatForm');
+        const agentButtons = document.querySelectorAll('.agent-btn');
+        
+        let selectedAgent = 'auto';
+
+        // Agent selection
+        agentButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                agentButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                selectedAgent = button.dataset.agent;
+                console.log('Selected agent:', selectedAgent);
+            });
+        });
 
         // Auto-resize textarea
         messageInput.addEventListener('input', function() {
@@ -380,7 +507,7 @@
             messageInput.value = '';
             messageInput.style.height = 'auto';
             sendButton.disabled = true;
-            sendButton.textContent = 'Sending...';
+            sendButton.textContent = 'Processing...';
             
             // Show typing indicator
             showTypingIndicator();
@@ -394,7 +521,7 @@
                     body: JSON.stringify({
                         location: location,
                         query: message,
-                        agent: 'hospital'  // Add a valid agent field
+                        agent: selectedAgent
                     })
                 });
                 
@@ -404,7 +531,11 @@
                 hideTypingIndicator();
                 
                 if (data.success) {
-                    addMessage(data.result, 'bot');
+                    addMessage(data.result, 'bot', false, {
+                        agent_used: data.agent_used,
+                        confidence: data.confidence,
+                        reasoning: data.reasoning
+                    });
                 } else {
                     addMessage(`❌ Error: ${data.error || 'Unknown error occurred'}`, 'bot', true);
                 }
@@ -418,13 +549,25 @@
             }
         });
 
-        function addMessage(content, sender, isError = false) {
+        function addMessage(content, sender, isError = false, agentInfo = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
             const avatarDiv = document.createElement('div');
             avatarDiv.className = 'message-avatar';
-            avatarDiv.textContent = sender === 'user' ? '👤' : '🤖';
+            
+            // Set avatar based on agent used
+            if (sender === 'bot' && agentInfo) {
+                if (agentInfo.agent_used === 'health_doctor') {
+                    avatarDiv.textContent = '🏥';
+                } else if (agentInfo.agent_used === 'insurance') {
+                    avatarDiv.textContent = '💼';
+                } else {
+                    avatarDiv.textContent = '🤖';
+                }
+            } else {
+                avatarDiv.textContent = sender === 'user' ? '👤' : '🤖';
+            }
             
             const contentDiv = document.createElement('div');
             contentDiv.className = `message-content ${isError ? 'error-message' : ''}`;
@@ -432,6 +575,23 @@
             
             messageDiv.appendChild(avatarDiv);
             messageDiv.appendChild(contentDiv);
+            
+            // Add agent info if available
+            if (agentInfo && sender === 'bot' && !isError) {
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'agent-info';
+                
+                const confidenceClass = agentInfo.confidence >= 0.7 ? 'confidence-high' : 
+                                      agentInfo.confidence >= 0.4 ? 'confidence-medium' : 'confidence-low';
+                
+                infoDiv.innerHTML = `
+                    Agent: <strong>${agentInfo.agent_used}</strong> | 
+                    Confidence: <span class="${confidenceClass}">${(agentInfo.confidence * 100).toFixed(0)}%</span> | 
+                    Reason: ${agentInfo.reasoning}
+                `;
+                
+                messageDiv.appendChild(infoDiv);
+            }
             
             chatMessages.appendChild(messageDiv);
             

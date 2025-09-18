@@ -3,6 +3,27 @@
 
 # CI Pipeline Script - Format, Test, Build, Deploy
 # Runs the complete development pipeline with intelligent commit messages
+# Function to ensure clean environment
+ensure_clean_environment() {
+    print_status "🧹 Ensuring clean environment..."
+    
+    # Remove problematic lock files
+    if [ -f ".venv/.lock" ]; then
+        print_warning "Removing .venv lock file..."
+        sudo rm -f .venv/.lock 2>/dev/null || rm -f .venv/.lock 2>/dev/null || true
+    fi
+    
+    # Fix permissions
+    if [ -d ".venv" ]; then
+        print_status "Fixing .venv permissions..."
+        sudo chown -R $USER:$USER .venv 2>/dev/null || true
+        chmod -R u+w .venv 2>/dev/null || true
+    fi
+    
+    # Clean Python cache
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -name "*.pyc" -delete 2>/dev/null || true
+}
 
 set -e  # Exit on any error
 

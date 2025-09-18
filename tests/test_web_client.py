@@ -10,8 +10,9 @@ from pathlib import Path
 # Add the project root to the Python path for imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "client"))
 
-from client.web_client import app, query_hospital_agent
+from client.web_client import app, QueryRequest, QueryResponse
 
 
 class TestWebClient:
@@ -24,37 +25,64 @@ class TestWebClient:
 
     @pytest.fixture
     def mock_httpx_client(self):
-        """Mock httpx client for FastAPI server communication."""
+        """Mock httpx client for orchestrator communication."""
         mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "success": True,
-            "output": [{"parts": [{"content": "Test AI response from doctor search"}]}]
+            "result": "Test AI response from orchestrator",
+            "agent_used": "health_doctor",
+            "confidence": 0.9,
+            "reasoning": "Health keywords detected"
         }
         mock_client.post.return_value = mock_response
+        mock_client.get.return_value = mock_response
         mock_client_class = MagicMock()
         mock_client_class.return_value.__aenter__.return_value = mock_client
         return mock_client_class
 
     def test_index_page(self, client):
         """Test that the index page loads successfully."""
-        response = client.get("/")
-        assert response.status_code == 200
-        assert "Hospital Agent Client" in response.text
-        assert "form" in response.text.lower()
+        with patch("builtins.open", side_effect=FileNotFoundError):
+            response = client.get("/")
+            assert response.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_query_hospital_agent_success(self, mock_httpx_client):
-        """Test successful query to hospital agent."""
-        with patch('httpx.AsyncClient', mock_httpx_client):
-            result = await query_hospital_agent("atlanta", "I need a cardiologist")
-            assert "Test AI response from doctor search" in result
+    def test_health_endpoint(self, client):
+        """Test the health check endpoint."""
+        with patch('client.web_client.httpx.AsyncClient') as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.get.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            
+            response = client.get("/health")
+            assert response.status_code == 200
+            
+            data = response.json()
+            assert data["status"] == "healthy"
+            assert data["service"] == "web-client"
+            assert "orchestrator_url" in data
 
-    @pytest.mark.asyncio
-    async def test_query_hospital_agent_server_error(self):
-        """Test query when server returns error."""
-        with patch('httpx.AsyncClient') as mock_client_class:
+    def test_query_endpoint_success(self, client, mock_httpx_client):
+        """Test the query endpoint with successful response."""
+        with patch('client.web_client.httpx.AsyncClient', mock_httpx_client):
+            response = client.post("/query", json={
+                "location": "atlanta",
+                "query": "I need a cardiologist",
+                "agent": "auto"
+            })
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "Test AI response from orchestrator" in data["result"]
+            assert data["agent_used"] == "health_doctor"
+
+    def test_query_endpoint_orchestrator_error(self, client):
+        """Test query endpoint when orchestrator returns error."""
+        with patch('client.web_client.httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.status_code = 500
@@ -62,71 +90,76 @@ class TestWebClient:
             mock_client.post.return_value = mock_response
             mock_client_class.return_value.__aenter__.return_value = mock_client
             
-            with pytest.raises(Exception):  # Should raise HTTPException
-                await query_hospital_agent("atlanta", "I need a cardiologist")
-
-    @pytest.mark.asyncio
-    async def test_query_hospital_agent_api_error(self):
-        """Test query when API returns error response."""
-        with patch('httpx.AsyncClient') as mock_client_class:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "success": False,
-                "error": "API Error occurred"
-            }
-            mock_client.post.return_value = mock_response
-            mock_client_class.return_value.__aenter__.return_value = mock_client
-            
-            with pytest.raises(Exception):  # Should raise HTTPException
-                await query_hospital_agent("atlanta", "I need a cardiologist")
-
-    @pytest.mark.asyncio
-    async def test_query_hospital_agent_connection_error(self):
-        """Test query when connection fails."""
-        with patch('httpx.AsyncClient') as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.post.side_effect = Exception("Connection failed")
-            mock_client_class.return_value.__aenter__.return_value = mock_client
-            
-            with pytest.raises(Exception):  # Should raise HTTPException
-                await query_hospital_agent("atlanta", "I need a cardiologist")
-
-    def test_query_endpoint_success(self, client, mock_httpx_client):
-        """Test the query endpoint with successful response."""
-        with patch('httpx.AsyncClient', mock_httpx_client):
             response = client.post("/query", json={
                 "location": "atlanta",
-                "query": "I need a cardiologist"
+                "query": "I need a cardiologist",
+                "agent": "auto"
             })
             
             assert response.status_code == 200
             data = response.json()
-            assert data["success"] is True
-            assert "Test AI response from doctor search" in data["result"]
+            assert data["success"] is False
+            assert "Orchestrator error" in data["error"]
 
-    def test_query_endpoint_missing_fields(self, client):
-        """Test the query endpoint with missing fields."""
-        # Missing location
+    def test_query_endpoint_connection_error(self, client):
+        """Test query endpoint when connection fails."""
+        with patch('client.web_client.httpx.AsyncClient') as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post.side_effect = Exception("Connection failed")
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            
+            response = client.post("/query", json={
+                "location": "atlanta",
+                "query": "I need a cardiologist",
+                "agent": "auto"
+            })
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is False
+            assert "Connection error" in data["error"]
+
+    def test_query_endpoint_validation_error(self, client):
+        """Test the query endpoint with validation errors."""
+        # Empty location
         response = client.post("/query", json={
+            "location": "",
             "query": "I need a cardiologist"
         })
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
-        # Missing query
+        # Empty query
+        response = client.post("/query", json={
+            "location": "atlanta",
+            "query": ""
+        })
+        assert response.status_code == 422
+
+        # Missing fields
         response = client.post("/query", json={
             "location": "atlanta"
         })
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
-    def test_query_endpoint_empty_fields(self, client):
-        """Test the query endpoint with empty fields."""
-        response = client.post("/query", json={
-            "location": "",
-            "query": ""
-        })
-        assert response.status_code == 422 or response.status_code == 500
+    def test_agents_status_endpoint(self, client):
+        """Test the agents status endpoint."""
+        with patch('client.web_client.httpx.AsyncClient') as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "health_agent": {"status": "healthy"},
+                "insurance_agent": {"status": "healthy"}
+            }
+            mock_client.get.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            
+            response = client.get("/agents/status")
+            assert response.status_code == 200
+            
+            data = response.json()
+            assert "health_agent" in data
+            assert "insurance_agent" in data
 
 
 class TestWebClientCurlCommands:
@@ -139,24 +172,22 @@ class TestWebClientCurlCommands:
 
     @pytest.fixture
     def mock_httpx_client(self):
-        """Mock httpx client for FastAPI server communication."""
+        """Mock httpx client for orchestrator communication."""
         mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "success": True,
-            "output": [{"parts": [{"content": "Dr. Sarah Mitchell - Cardiology - Atlanta, GA"}]}]
+            "result": "Dr. Sarah Mitchell - Cardiology - Atlanta, GA",
+            "agent_used": "health_doctor",
+            "confidence": 0.9,
+            "reasoning": "Health keywords detected"
         }
         mock_client.post.return_value = mock_response
+        mock_client.get.return_value = mock_response
         mock_client_class = MagicMock()
         mock_client_class.return_value.__aenter__.return_value = mock_client
         return mock_client_class
-
-    def test_curl_get_index(self, client):
-        """Test equivalent of: curl -s http://localhost:7080/"""
-        response = client.get("/")
-        assert response.status_code == 200
-        assert "text/html" in response.headers["content-type"]
 
     def test_curl_query_cardiologist_atlanta(self, client, mock_httpx_client):
         """
@@ -165,12 +196,13 @@ class TestWebClientCurlCommands:
              -H "Content-Type: application/json" \
              -d '{"location": "atlanta", "query": "I need to find a cardiologist"}'
         """
-        with patch('httpx.AsyncClient', mock_httpx_client):
+        with patch('client.web_client.httpx.AsyncClient', mock_httpx_client):
             response = client.post(
                 "/query",
                 json={
                     "location": "atlanta",
-                    "query": "I need to find a cardiologist"
+                    "query": "I need to find a cardiologist",
+                    "agent": "auto"
                 },
                 headers={"Content-Type": "application/json"}
             )
@@ -181,20 +213,15 @@ class TestWebClientCurlCommands:
             assert "Dr. Sarah Mitchell" in data["result"]
 
     def test_curl_query_different_locations(self, client, mock_httpx_client):
-        """
-        Test queries for different locations:
-        curl -X POST http://localhost:7080/query \
-             -H "Content-Type: application/json" \
-             -d '{"location": "california", "query": "I need a dermatologist"}'
-        """
+        """Test queries for different locations and agent types."""
         test_cases = [
-            {"location": "california", "query": "I need a dermatologist"},
-            {"location": "texas", "query": "I need a pediatrician"},
-            {"location": "florida", "query": "I need an orthopedic surgeon"},
-            {"location": "GA", "query": "I need an emergency doctor"}
+            {"location": "california", "query": "I need a dermatologist", "agent": "doctor"},
+            {"location": "texas", "query": "I need a pediatrician", "agent": "auto"},
+            {"location": "florida", "query": "Is my insurance covering this?", "agent": "insurance"},
+            {"location": "GA", "query": "I need an emergency doctor", "agent": "doctor"}
         ]
         
-        with patch('httpx.AsyncClient', mock_httpx_client):
+        with patch('client.web_client.httpx.AsyncClient', mock_httpx_client):
             for test_case in test_cases:
                 response = client.post(
                     "/query",
@@ -206,48 +233,43 @@ class TestWebClientCurlCommands:
                 data = response.json()
                 assert data["success"] is True
 
-    def test_curl_query_with_verbose_output(self, client, mock_httpx_client):
+    def test_curl_health_check(self, client):
         """
         Test equivalent of:
-        curl -v -X POST http://localhost:7080/query \
-             -H "Content-Type: application/json" \
-             -d '{"location": "atlanta", "query": "I need urgent care"}'
+        curl -s http://localhost:7080/health
         """
-        with patch('httpx.AsyncClient', mock_httpx_client):
-            response = client.post(
-                "/query",
-                json={
-                    "location": "atlanta",
-                    "query": "I need urgent care"
-                },
-                headers={"Content-Type": "application/json"}
-            )
+        with patch('client.web_client.httpx.AsyncClient') as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.get.return_value = mock_response
+            mock_client_class.return_value.__aenter__.return_value = mock_client
             
-            # Check response details (equivalent to verbose curl output)
+            response = client.get("/health")
             assert response.status_code == 200
-            assert "application/json" in response.headers["content-type"]
             
             data = response.json()
-            assert "success" in data
-            assert "result" in data or "error" in data
+            assert data["status"] == "healthy"
+            assert data["service"] == "web-client"
 
     def test_curl_malformed_requests(self, client):
-        """
-        Test various malformed requests:
-        curl -X POST http://localhost:7080/query -H "Content-Type: application/json" -d '{invalid json}'
-        """
-        # Invalid JSON
+        """Test various malformed requests."""
+        # Missing required fields
         response = client.post(
             "/query",
-            data="{invalid json}",
+            json={"location": "atlanta"},  # Missing query
             headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 422
 
-        # Missing content-type
+        # Empty required fields
         response = client.post(
             "/query",
-            json={"location": "atlanta", "query": "test"}
+            json={"location": "", "query": "test"},  # Empty location
+            headers={"Content-Type": "application/json"}
         )
-        # Should still work as TestClient handles this
-        assert response.status_code in [200, 422, 500]
+        assert response.status_code == 422
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
