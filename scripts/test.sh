@@ -66,7 +66,7 @@ run_tests() {
     # Set test environment variables
     export PYTHONPATH="/home/danny/code/multi-agent-ai:/home/danny/code/multi-agent-ai/server"
     export OPENAI_API_KEY="test-api-key"
-    
+    export OPENAI_API_KEY="mock_api_key"
     # Fix permissions first
     fix_venv_permissions
     

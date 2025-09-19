@@ -1,7 +1,7 @@
-import os
 import logging
+import os
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 import uvicorn
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ load_dotenv()
 # Configure logging with detailed format
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,9 @@ if api_key:
     masked_key = f"{api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else 'SHORT'}"
     logger.info(f"OpenAI API key configured: {masked_key}")
     logger.debug(f"API key length: {len(api_key)} characters")
-    print(f"API Key loaded: {api_key[:20]}...{api_key[-4:] if len(api_key) > 24 else 'SHORT_KEY'}")
+    print(
+        f"API Key loaded: {api_key[:20]}...{api_key[-4:] if len(api_key) > 24 else 'SHORT_KEY'}"
+    )
 else:
     logger.warning("OPENAI_API_KEY not found in environment variables")
     print("No API Key found in environment")
@@ -335,7 +337,9 @@ specialties = set(doc["specialty"] for doc in doctors.values())
 
 logger.info(f"Doctor database loaded successfully:")
 logger.info(f"  Total doctors: {total_doctors}")
-logger.info(f"  States covered: {len(states_covered)} ({', '.join(sorted(states_covered))})")
+logger.info(
+    f"  States covered: {len(states_covered)} ({', '.join(sorted(states_covered))})"
+)
 logger.info(f"  Specialties available: {len(specialties)}")
 logger.debug(f"  Specialties: {', '.join(sorted(specialties))}")
 
@@ -365,53 +369,63 @@ def doctor_search(state: str) -> str:
     """
     logger.info(f"Doctor search initiated for state: '{state}'")
     start_time = time.time()
-    
+
     # Input validation and logging
     if not state:
         logger.warning("Empty state parameter provided")
         return "No doctors found: state parameter is required"
-    
+
     # Normalize state input
     state_upper = state.upper().strip()
     logger.debug(f"Normalized state code: '{state_upper}'")
-    
+
     if len(state_upper) != 2:
-        logger.warning(f"Invalid state code length: '{state_upper}' (expected 2 characters)")
+        logger.warning(
+            f"Invalid state code length: '{state_upper}' (expected 2 characters)"
+        )
         return f"Invalid state code: {state}. Please provide a 2-letter state code."
-    
+
     # Search for doctors
     logger.debug(f"Searching doctors in database for state: {state_upper}")
     filtered_doctors = {}
-    
+
     for doc_id, doc_info in doctors.items():
         doc_state = doc_info["address"]["state"]
         if doc_state == state_upper:
             filtered_doctors[doc_id] = doc_info
-            logger.debug(f"Found doctor: {doc_id} - {doc_info['name']} ({doc_info['specialty']})")
-    
+            logger.debug(
+                f"Found doctor: {doc_id} - {doc_info['name']} ({doc_info['specialty']})"
+            )
+
     # Log search results
     search_time = time.time() - start_time
     result_count = len(filtered_doctors)
-    
+
     logger.info(f"Doctor search completed in {search_time:.3f}s")
     logger.info(f"Found {result_count} doctors in state '{state_upper}'")
-    
+
     if filtered_doctors:
         # Log summary of found doctors
         specialties_found = set(doc["specialty"] for doc in filtered_doctors.values())
         logger.debug(f"Specialties found: {', '.join(sorted(specialties_found))}")
-        
+
         # Log accepting new patients count
-        accepting_new = sum(1 for doc in filtered_doctors.values() if doc.get("accepts_new_patients", False))
+        accepting_new = sum(
+            1
+            for doc in filtered_doctors.values()
+            if doc.get("accepts_new_patients", False)
+        )
         logger.debug(f"Doctors accepting new patients: {accepting_new}/{result_count}")
-        
+
         result = str(filtered_doctors)
         logger.debug(f"Result string length: {len(result)} characters")
         return result
     else:
         logger.info(f"No doctors found in state: {state_upper}")
         # Suggest nearby states if available
-        available_states = sorted(set(doc["address"]["state"] for doc in doctors.values()))
+        available_states = sorted(
+            set(doc["address"]["state"] for doc in doctors.values())
+        )
         logger.debug(f"Available states: {', '.join(available_states)}")
         return f"No doctors found in state: {state}. Available states: {', '.join(available_states)}"
 
@@ -431,31 +445,35 @@ async def log_requests(request: Request, call_next):
     """Middleware to log all HTTP requests and responses."""
     start_time = time.time()
     request_id = id(request)
-    
+
     # Log incoming request
     logger.info(f"[Request {request_id}] {request.method} {request.url}")
     logger.debug(f"[Request {request_id}] Headers: {dict(request.headers)}")
-    
+
     # Log client info
     client_host = request.client.host if request.client else "unknown"
     logger.debug(f"[Request {request_id}] Client: {client_host}")
-    
+
     # Process request
     try:
         response = await call_next(request)
         process_time = time.time() - start_time
-        
+
         # Log response
-        logger.info(f"[Request {request_id}] Response: {response.status_code} in {process_time:.3f}s")
-        
+        logger.info(
+            f"[Request {request_id}] Response: {response.status_code} in {process_time:.3f}s"
+        )
+
         # Add timing header
         response.headers["X-Process-Time"] = str(process_time)
-        
+
         return response
-        
+
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"[Request {request_id}] Error after {process_time:.3f}s: {str(e)}")
+        logger.error(
+            f"[Request {request_id}] Error after {process_time:.3f}s: {str(e)}"
+        )
         logger.exception(f"[Request {request_id}] Exception details:")
         raise
 
@@ -469,7 +487,9 @@ async def get_server_info():
         "version": "1.0.0",
         "description": "Healthcare MCP Server",
         "total_doctors": len(doctors),
-        "states_covered": sorted(set(doc["address"]["state"] for doc in doctors.values())),
+        "states_covered": sorted(
+            set(doc["address"]["state"] for doc in doctors.values())
+        ),
         "specialties": sorted(set(doc["specialty"] for doc in doctors.values())),
     }
     logger.debug(f"Returning server info: {server_info}")
@@ -482,7 +502,7 @@ async def handle_jsonrpc(request: Request):
     request_id = id(request)
     logger.info(f"[JSONRPC {request_id}] Received JSON-RPC request")
     start_time = time.time()
-    
+
     try:
         body = await request.json()
         logger.debug(f"[JSONRPC {request_id}] Request body: {body}")
@@ -515,7 +535,7 @@ async def handle_jsonrpc(request: Request):
     method = body.get("method")
     params = body.get("params", {})
     json_request_id = body.get("id")
-    
+
     logger.info(f"[JSONRPC {request_id}] Method: {method}")
     logger.debug(f"[JSONRPC {request_id}] Params: {params}")
     logger.debug(f"[JSONRPC {request_id}] Request ID: {json_request_id}")
@@ -545,35 +565,43 @@ async def handle_jsonrpc(request: Request):
             },
         }
         process_time = time.time() - start_time
-        logger.info(f"[JSONRPC {request_id}] tools/list completed in {process_time:.3f}s")
+        logger.info(
+            f"[JSONRPC {request_id}] tools/list completed in {process_time:.3f}s"
+        )
         return tools_response
-        
+
     elif method == "tools/call":
         logger.debug(f"[JSONRPC {request_id}] Handling tools/call request")
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
-        
+
         logger.info(f"[JSONRPC {request_id}] Tool call: {tool_name}")
         logger.debug(f"[JSONRPC {request_id}] Tool arguments: {arguments}")
 
         if tool_name == "doctor_search":
             state = arguments.get("state", "")
-            logger.info(f"[JSONRPC {request_id}] Calling doctor_search with state: '{state}'")
-            
+            logger.info(
+                f"[JSONRPC {request_id}] Calling doctor_search with state: '{state}'"
+            )
+
             try:
                 result = doctor_search(state)
-                logger.debug(f"[JSONRPC {request_id}] doctor_search result length: {len(result)} chars")
-                
+                logger.debug(
+                    f"[JSONRPC {request_id}] doctor_search result length: {len(result)} chars"
+                )
+
                 response = {
                     "jsonrpc": "2.0",
                     "id": json_request_id,
                     "result": {"content": [{"type": "text", "text": result}]},
                 }
-                
+
                 process_time = time.time() - start_time
-                logger.info(f"[JSONRPC {request_id}] doctor_search completed successfully in {process_time:.3f}s")
+                logger.info(
+                    f"[JSONRPC {request_id}] doctor_search completed successfully in {process_time:.3f}s"
+                )
                 return response
-                
+
             except Exception as e:
                 logger.error(f"[JSONRPC {request_id}] Error in doctor_search: {str(e)}")
                 logger.exception(f"[JSONRPC {request_id}] doctor_search exception:")
@@ -586,7 +614,9 @@ async def handle_jsonrpc(request: Request):
                     },
                 }
         else:
-            logger.warning(f"[JSONRPC {request_id}] Unknown tool requested: {tool_name}")
+            logger.warning(
+                f"[JSONRPC {request_id}] Unknown tool requested: {tool_name}"
+            )
             return {
                 "jsonrpc": "2.0",
                 "id": json_request_id,
@@ -610,30 +640,33 @@ async def api_doctor_search(request: dict):
     request_id = id(request)
     logger.info(f"[API {request_id}] Direct doctor_search API call")
     logger.debug(f"[API {request_id}] Request: {request}")
-    
+
     start_time = time.time()
-    
+
     try:
         state = request.get("state", "")
         logger.info(f"[API {request_id}] Searching for doctors in state: '{state}'")
-        
+
         result = doctor_search(state)
-        
+
         response = {"result": result}
         process_time = time.time() - start_time
-        
-        logger.info(f"[API {request_id}] Direct API call completed in {process_time:.3f}s")
+
+        logger.info(
+            f"[API {request_id}] Direct API call completed in {process_time:.3f}s"
+        )
         logger.debug(f"[API {request_id}] Response: {response}")
-        
+
         return JSONResponse(response)
-        
+
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"[API {request_id}] Error in direct API call after {process_time:.3f}s: {str(e)}")
+        logger.error(
+            f"[API {request_id}] Error in direct API call after {process_time:.3f}s: {str(e)}"
+        )
         logger.exception(f"[API {request_id}] Exception details:")
         return JSONResponse(
-            status_code=500,
-            content={"error": f"Internal server error: {str(e)}"}
+            status_code=500, content={"error": f"Internal server error: {str(e)}"}
         )
 
 
@@ -641,19 +674,21 @@ async def api_doctor_search(request: dict):
 async def health_check():
     """Enhanced health check endpoint."""
     logger.debug("Health check requested")
-    
+
     health_info = {
-        "status": "healthy", 
+        "status": "healthy",
         "service": "MCP Doctor Server",
         "version": "1.0.0",
         "database": {
             "total_doctors": len(doctors),
-            "states_covered": len(set(doc["address"]["state"] for doc in doctors.values())),
+            "states_covered": len(
+                set(doc["address"]["state"] for doc in doctors.values())
+            ),
             "specialties": len(set(doc["specialty"] for doc in doctors.values())),
         },
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
-    
+
     logger.debug(f"Health check response: {health_info}")
     return health_info
 
@@ -683,15 +718,9 @@ if __name__ == "__main__":
     logger.info("  Host: 0.0.0.0")
     logger.info("  Port: 8333")
     logger.info("  Log level: info")
-    
+
     try:
-        uvicorn.run(
-            app, 
-            host="0.0.0.0", 
-            port=8333,
-            log_level="info",
-            access_log=True
-        )
+        uvicorn.run(app, host="0.0.0.0", port=8333, log_level="info", access_log=True)
     except KeyboardInterrupt:
         logger.info("Server shutdown requested by user")
     except Exception as e:

@@ -41,6 +41,13 @@ fi
 git commit -m "$COMMIT_MESSAGE"
 print_success "Changes committed"
 
+# Check current git remote
+git remote -v
+
+# If it's using HTTPS, switch to SSH (for GitHub)
+git remote set-url origin git@github.com:schmouli/multi-agent-ai.git
+print_status "Switched remote to SSH"
+
 # Push to remote
 git push origin "$CURRENT_BRANCH"
 print_success "Changes pushed to $CURRENT_BRANCH"

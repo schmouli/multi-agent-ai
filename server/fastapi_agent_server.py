@@ -1,11 +1,11 @@
-import os
-import sys
-import re
 import logging
+import os
+import re
+import sys
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
-from contextlib import asynccontextmanager
 
 # Load environment variables first, before other imports
 from dotenv import load_dotenv
@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 # Try different possible locations for .env file
 env_paths = [
-    Path.cwd() / ".env",                    # Current working directory
-    Path(__file__).parent / ".env",         # Server directory
+    Path.cwd() / ".env",  # Current working directory
+    Path(__file__).parent / ".env",  # Server directory
     Path(__file__).parent.parent / ".env",  # Project root
 ]
 
@@ -39,7 +39,9 @@ for var in required_env_vars:
 
 if missing_vars:
     print(f"Warning: Missing required environment variables: {missing_vars}")
-    print("Make sure your .env file contains these variables or set them in your environment.")
+    print(
+        "Make sure your .env file contains these variables or set them in your environment."
+    )
 
 # Import external dependencies after environment setup
 try:
@@ -60,13 +62,15 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 # Log startup information
 logger.info("=== FastAPI Healthcare Agent Server Starting ===")
-logger.info(f"Python version: {sys.version}")  # Fixed: use sys.version instead of os.sys.version
+logger.info(
+    f"Python version: {sys.version}"
+)  # Fixed: use sys.version instead of os.sys.version
 logger.info(f"Working directory: {os.getcwd()}")
 
 # Environment variable configuration with defaults
@@ -84,13 +88,14 @@ if os.getenv("OPENAI_API_KEY"):
     else:
         masked_key = "***"
     logger.info(f"OpenAI API key configured: {masked_key}")
-    
+
     # Validate API key format
     if not api_key.startswith("sk-"):
         logger.warning("OpenAI API key doesn't start with 'sk-' - this may be invalid")
 else:
     logger.error("OPENAI_API_KEY not found in environment variables!")
     logger.error("Please check your .env file or environment configuration")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -101,33 +106,37 @@ async def lifespan(app: FastAPI):
     logger.info("  POST /query      - Main query endpoint")
     logger.info("  POST /run_sync   - Legacy sync endpoint")
     logger.info("Server is ready to accept requests")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("=== FastAPI Healthcare Agent Server Shutting Down ===")
+
 
 # Create FastAPI app
 try:
     app = FastAPI(
-        title="Healthcare Agent Server", 
+        title="Healthcare Agent Server",
         version="1.0.0",
         description="Healthcare agent server with state extraction and MCP integration",
-        lifespan=lifespan
+        lifespan=lifespan,
     )
     logger.info("FastAPI application initialized")
 except Exception as e:
     logger.error(f"Failed to initialize FastAPI app: {e}")
     sys.exit(1)
 
+
 class QueryRequest(BaseModel):
     location: str
     query: str
     agent: str = "hospital"
 
+
 class QueryResponse(BaseModel):
     result: str
     success: bool = True
+
 
 def extract_state_from_prompt(prompt: str) -> Optional[str]:
     """Extract US state code from user prompt.
@@ -141,35 +150,98 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
     if not prompt:
         logger.debug("Empty prompt provided, returning None")
         return None
-        
-    logger.debug(f"Starting state extraction from prompt: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}'")
+
+    logger.debug(
+        f"Starting state extraction from prompt: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}'"
+    )
     start_time = time.time()
-    
+
     # State name to code mapping (complete list)
     state_names = {
-        "california": "CA", "texas": "TX", "florida": "FL", "new york": "NY",
-        "pennsylvania": "PA", "illinois": "IL", "ohio": "OH", "georgia": "GA",
-        "north carolina": "NC", "michigan": "MI", "new jersey": "NJ", "virginia": "VA",
-        "washington": "WA", "arizona": "AZ", "massachusetts": "MA", "tennessee": "TN",
-        "indiana": "IN", "missouri": "MO", "maryland": "MD", "wisconsin": "WI",
-        "colorado": "CO", "minnesota": "MN", "south carolina": "SC", "alabama": "AL",
-        "louisiana": "LA", "kentucky": "KY", "oregon": "OR", "oklahoma": "OK",
-        "connecticut": "CT", "utah": "UT", "iowa": "IA", "nevada": "NV",
-        "arkansas": "AR", "mississippi": "MS", "kansas": "KS", "new mexico": "NM",
-        "nebraska": "NE", "west virginia": "WV", "idaho": "ID", "hawaii": "HI",
-        "new hampshire": "NH", "maine": "ME", "montana": "MT", "rhode island": "RI",
-        "delaware": "DE", "south dakota": "SD", "north dakota": "ND", "alaska": "AK",
-        "vermont": "VT", "wyoming": "WY",
+        "california": "CA",
+        "texas": "TX",
+        "florida": "FL",
+        "new york": "NY",
+        "pennsylvania": "PA",
+        "illinois": "IL",
+        "ohio": "OH",
+        "georgia": "GA",
+        "north carolina": "NC",
+        "michigan": "MI",
+        "new jersey": "NJ",
+        "virginia": "VA",
+        "washington": "WA",
+        "arizona": "AZ",
+        "massachusetts": "MA",
+        "tennessee": "TN",
+        "indiana": "IN",
+        "missouri": "MO",
+        "maryland": "MD",
+        "wisconsin": "WI",
+        "colorado": "CO",
+        "minnesota": "MN",
+        "south carolina": "SC",
+        "alabama": "AL",
+        "louisiana": "LA",
+        "kentucky": "KY",
+        "oregon": "OR",
+        "oklahoma": "OK",
+        "connecticut": "CT",
+        "utah": "UT",
+        "iowa": "IA",
+        "nevada": "NV",
+        "arkansas": "AR",
+        "mississippi": "MS",
+        "kansas": "KS",
+        "new mexico": "NM",
+        "nebraska": "NE",
+        "west virginia": "WV",
+        "idaho": "ID",
+        "hawaii": "HI",
+        "new hampshire": "NH",
+        "maine": "ME",
+        "montana": "MT",
+        "rhode island": "RI",
+        "delaware": "DE",
+        "south dakota": "SD",
+        "north dakota": "ND",
+        "alaska": "AK",
+        "vermont": "VT",
+        "wyoming": "WY",
     }
 
     # Valid state codes for validation
     valid_state_codes = set(state_names.values())
-    logger.debug(f"Loaded {len(state_names)} state names and {len(valid_state_codes)} state codes")
+    logger.debug(
+        f"Loaded {len(state_names)} state names and {len(valid_state_codes)} state codes"
+    )
 
     # Words that should not be considered state codes even if they match
     excluded_words = {
-        "me", "us", "am", "is", "it", "to", "in", "or", "at", "an", "as", "be", "by",
-        "do", "go", "he", "if", "my", "no", "of", "on", "so", "up", "we",
+        "me",
+        "us",
+        "am",
+        "is",
+        "it",
+        "to",
+        "in",
+        "or",
+        "at",
+        "an",
+        "as",
+        "be",
+        "by",
+        "do",
+        "go",
+        "he",
+        "if",
+        "my",
+        "no",
+        "of",
+        "on",
+        "so",
+        "up",
+        "we",
     }
 
     prompt_lower = prompt.lower()
@@ -178,11 +250,13 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
     # Check for full state names first (longer matches first)
     logger.debug("Checking for full state names...")
     sorted_states = sorted(state_names.items(), key=lambda x: len(x[0]), reverse=True)
-    
+
     for state_name, state_code in sorted_states:
         if state_name in prompt_lower:
             execution_time = time.time() - start_time
-            logger.info(f"Found state name '{state_name}' -> '{state_code}' in {execution_time:.3f}s")
+            logger.info(
+                f"Found state name '{state_name}' -> '{state_code}' in {execution_time:.3f}s"
+            )
             logger.debug(f"State found using full name matching")
             return state_code
 
@@ -203,17 +277,21 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
 
     try:
         prompt_upper = prompt.upper()
-        logger.debug(f"Checking {len(state_code_patterns)} regex patterns against uppercase prompt")
+        logger.debug(
+            f"Checking {len(state_code_patterns)} regex patterns against uppercase prompt"
+        )
 
         for i, pattern in enumerate(state_code_patterns, 1):
             logger.debug(f"Testing pattern {i}: {pattern}")
             matches = re.findall(pattern, prompt_upper)
             logger.debug(f"Pattern {i} matches: {matches}")
-            
+
             for match in matches:
                 if match in valid_state_codes and match.lower() not in excluded_words:
                     execution_time = time.time() - start_time
-                    logger.info(f"Found state code '{match}' using pattern {i} in {execution_time:.3f}s")
+                    logger.info(
+                        f"Found state code '{match}' using pattern {i} in {execution_time:.3f}s"
+                    )
                     logger.debug(f"Pattern used: {pattern}")
                     return match
 
@@ -223,10 +301,10 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
         standalone_pattern = r"\b([A-Z]{2})\b"
         matches = re.findall(standalone_pattern, prompt_upper)
         logger.debug(f"Standalone pattern matches: {matches}")
-        
+
         prompt_words = prompt.split()
         logger.debug(f"Prompt word count: {len(prompt_words)}")
-        
+
         for match in matches:
             if (
                 match in valid_state_codes
@@ -234,7 +312,9 @@ def extract_state_from_prompt(prompt: str) -> Optional[str]:
                 and len(prompt_words) <= 5
             ):
                 execution_time = time.time() - start_time
-                logger.info(f"Found standalone state code '{match}' in {execution_time:.3f}s")
+                logger.info(
+                    f"Found standalone state code '{match}' in {execution_time:.3f}s"
+                )
                 logger.debug(f"Match found in short prompt ({len(prompt_words)} words)")
                 return match
 
@@ -253,31 +333,35 @@ async def log_requests(request: Request, call_next):
     """Middleware to log all HTTP requests and responses."""
     start_time = time.time()
     request_id = id(request)
-    
+
     # Log incoming request
     logger.info(f"[Request {request_id}] {request.method} {request.url}")
     logger.debug(f"[Request {request_id}] Headers: {dict(request.headers)}")
-    
+
     # Log client info
     client_host = request.client.host if request.client else "unknown"
     logger.debug(f"[Request {request_id}] Client: {client_host}")
-    
+
     # Process request
     try:
         response = await call_next(request)
         process_time = time.time() - start_time
-        
+
         # Log response
-        logger.info(f"[Request {request_id}] Response: {response.status_code} in {process_time:.3f}s")
-        
+        logger.info(
+            f"[Request {request_id}] Response: {response.status_code} in {process_time:.3f}s"
+        )
+
         # Add timing header
         response.headers["X-Process-Time"] = str(process_time)
-        
+
         return response
-        
+
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"[Request {request_id}] Error after {process_time:.3f}s: {str(e)}")
+        logger.error(
+            f"[Request {request_id}] Error after {process_time:.3f}s: {str(e)}"
+        )
         logger.exception(f"[Request {request_id}] Exception details:")
         raise
 
@@ -286,25 +370,27 @@ async def log_requests(request: Request, call_next):
 async def health_check():
     """Health check endpoint with detailed system info."""
     logger.debug("Health check requested")
-    
+
     health_info = {
-        "status": "healthy", 
+        "status": "healthy",
         "service": "healthcare-agent-server",
         "version": "1.0.0",
         "mcp_server_url": mcp_server_url,
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
-    
+
     # Test MCP server connectivity
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             test_response = await client.get(f"{mcp_server_url.rstrip('/')}/")
             health_info["mcp_server_status"] = "reachable"
-            logger.debug(f"MCP server health check successful: {test_response.status_code}")
+            logger.debug(
+                f"MCP server health check successful: {test_response.status_code}"
+            )
     except Exception as e:
         health_info["mcp_server_status"] = f"unreachable: {str(e)}"
         logger.warning(f"MCP server health check failed: {str(e)}")
-    
+
     logger.debug(f"Health check response: {health_info}")
     return health_info
 
@@ -315,12 +401,14 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
     request_id = id(request)
     logger.info(f"[Query {request_id}] Received query request")
     logger.info(f"[Query {request_id}] Location: '{request.location}'")
-    logger.info(f"[Query {request_id}] Query: '{request.query[:100]}{'...' if len(request.query) > 100 else ''}'")
+    logger.info(
+        f"[Query {request_id}] Query: '{request.query[:100]}{'...' if len(request.query) > 100 else ''}'"
+    )
     logger.info(f"[Query {request_id}] Agent: '{request.agent}'")
     logger.debug(f"[Query {request_id}] Full request: {request}")
-    
+
     start_time = time.time()
-    
+
     # Validate inputs
     if not request.query or not request.query.strip():
         logger.warning(f"[Query {request_id}] Empty query provided")
@@ -338,10 +426,12 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
         # Extract state from location or query
         logger.info(f"[Query {request_id}] Starting state extraction...")
         combined_text = f"{request.location} {request.query}"
-        logger.debug(f"[Query {request_id}] Combined text for extraction: '{combined_text}'")
-        
+        logger.debug(
+            f"[Query {request_id}] Combined text for extraction: '{combined_text}'"
+        )
+
         state = extract_state_from_prompt(combined_text)
-        
+
         if state:
             logger.info(f"[Query {request_id}] Extracted state: '{state}'")
         else:
@@ -350,7 +440,7 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
         # Prepare MCP server request
         mcp_url = f"{mcp_server_url.rstrip('/')}/"
         logger.debug(f"[Query {request_id}] MCP server URL: {mcp_url}")
-        
+
         # Use extracted state or default query
         search_args = {"state": state} if state else {"query": request.query}
         logger.debug(f"[Query {request_id}] Search arguments: {search_args}")
@@ -364,56 +454,91 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
                 "arguments": search_args,
             },
         }
-        
+
         logger.info(f"[Query {request_id}] Sending request to MCP server...")
         logger.debug(f"[Query {request_id}] MCP payload: {payload}")
 
         # Forward to MCP server
         async with httpx.AsyncClient(timeout=30.0) as client:
             mcp_start_time = time.time()
-            
+
             try:
                 mcp_response = await client.post(mcp_url, json=payload)
                 mcp_time = time.time() - mcp_start_time
-                
-                logger.info(f"[Query {request_id}] MCP server responded in {mcp_time:.3f}s with status {mcp_response.status_code}")
-                logger.debug(f"[Query {request_id}] MCP response headers: {dict(mcp_response.headers)}")
-                
+
+                logger.info(
+                    f"[Query {request_id}] MCP server responded in {mcp_time:.3f}s with status {mcp_response.status_code}"
+                )
+                logger.debug(
+                    f"[Query {request_id}] MCP response headers: {dict(mcp_response.headers)}"
+                )
+
                 if mcp_response.status_code == 200:
                     result = mcp_response.json()
                     logger.debug(f"[Query {request_id}] MCP response JSON: {result}")
-                    
-                    if "result" in result and result["result"] and "content" in result["result"]:
+
+                    if (
+                        "result" in result
+                        and result["result"]
+                        and "content" in result["result"]
+                    ):
                         content_list = result["result"]["content"]
-                        if content_list and len(content_list) > 0 and "text" in content_list[0]:
+                        if (
+                            content_list
+                            and len(content_list) > 0
+                            and "text" in content_list[0]
+                        ):
                             content = content_list[0]["text"]
-                            logger.info(f"[Query {request_id}] Successfully extracted content, length: {len(content)} chars")
-                            logger.debug(f"[Query {request_id}] Content preview: {content[:200]}...")
-                            
+                            logger.info(
+                                f"[Query {request_id}] Successfully extracted content, length: {len(content)} chars"
+                            )
+                            logger.debug(
+                                f"[Query {request_id}] Content preview: {content[:200]}..."
+                            )
+
                             total_time = time.time() - start_time
-                            logger.info(f"[Query {request_id}] Query completed successfully in {total_time:.3f}s")
-                            
+                            logger.info(
+                                f"[Query {request_id}] Query completed successfully in {total_time:.3f}s"
+                            )
+
                             return QueryResponse(result=content, success=True)
                         else:
-                            logger.warning(f"[Query {request_id}] Invalid content structure in MCP response")
-                            return QueryResponse(result="Invalid response format from MCP server", success=False)
+                            logger.warning(
+                                f"[Query {request_id}] Invalid content structure in MCP response"
+                            )
+                            return QueryResponse(
+                                result="Invalid response format from MCP server",
+                                success=False,
+                            )
                     else:
-                        logger.warning(f"[Query {request_id}] No 'result' field in MCP response")
-                        logger.debug(f"[Query {request_id}] Available fields: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                        logger.warning(
+                            f"[Query {request_id}] No 'result' field in MCP response"
+                        )
+                        logger.debug(
+                            f"[Query {request_id}] Available fields: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
+                        )
                         return QueryResponse(result="No results found", success=False)
                 else:
-                    logger.error(f"[Query {request_id}] MCP server error: {mcp_response.status_code}")
-                    logger.error(f"[Query {request_id}] MCP error response: {mcp_response.text}")
+                    logger.error(
+                        f"[Query {request_id}] MCP server error: {mcp_response.status_code}"
+                    )
+                    logger.error(
+                        f"[Query {request_id}] MCP error response: {mcp_response.text}"
+                    )
                     raise HTTPException(status_code=500, detail="MCP server error")
-                    
+
             except httpx.TimeoutException:
                 mcp_time = time.time() - mcp_start_time
-                logger.error(f"[Query {request_id}] MCP server timeout after {mcp_time:.3f}s")
+                logger.error(
+                    f"[Query {request_id}] MCP server timeout after {mcp_time:.3f}s"
+                )
                 raise HTTPException(status_code=504, detail="MCP server timeout")
-                
+
             except httpx.RequestError as e:
                 mcp_time = time.time() - mcp_start_time
-                logger.error(f"[Query {request_id}] MCP server connection error after {mcp_time:.3f}s: {str(e)}")
+                logger.error(
+                    f"[Query {request_id}] MCP server connection error after {mcp_time:.3f}s: {str(e)}"
+                )
                 raise HTTPException(
                     status_code=503, detail=f"Cannot connect to MCP server: {str(e)}"
                 )
@@ -421,12 +546,16 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
     except HTTPException:
         # Re-raise HTTP exceptions (already logged above)
         total_time = time.time() - start_time
-        logger.error(f"[Query {request_id}] Query failed with HTTP exception after {total_time:.3f}s")
+        logger.error(
+            f"[Query {request_id}] Query failed with HTTP exception after {total_time:.3f}s"
+        )
         raise
-        
+
     except Exception as e:
         total_time = time.time() - start_time
-        logger.error(f"[Query {request_id}] Unexpected error after {total_time:.3f}s: {str(e)}")
+        logger.error(
+            f"[Query {request_id}] Unexpected error after {total_time:.3f}s: {str(e)}"
+        )
         logger.error(f"[Query {request_id}] Error type: {type(e).__name__}")
         logger.exception(f"[Query {request_id}] Full traceback:")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -438,40 +567,41 @@ async def run_sync(request: Dict[str, Any]):
     request_id = id(request)
     logger.info(f"[RunSync {request_id}] Received run_sync request")
     logger.debug(f"[RunSync {request_id}] Payload: {request}")
-    
+
     start_time = time.time()
-    
+
     # Validate agent
     valid_agents = ["hospital", "doctor"]
-    
+
     if "agent" not in request:
         logger.warning(f"[RunSync {request_id}] Missing 'agent' field in request")
-        raise HTTPException(
-            status_code=400,
-            detail="Missing 'agent' field in request"
-        )
-    
+        raise HTTPException(status_code=400, detail="Missing 'agent' field in request")
+
     if request["agent"] not in valid_agents:
         logger.warning(f"[RunSync {request_id}] Invalid agent: '{request['agent']}'")
         raise HTTPException(
             status_code=400,
             detail=f"Invalid agent specified. Valid agents are: {', '.join(valid_agents)}",
         )
-    
+
     agent = request["agent"]
     logger.info(f"[RunSync {request_id}] Agent validation passed: '{agent}'")
-    
+
     # Log additional request fields
     if "input" in request:
-        input_preview = str(request["input"])[:100] + "..." if len(str(request["input"])) > 100 else str(request["input"])
+        input_preview = (
+            str(request["input"])[:100] + "..."
+            if len(str(request["input"])) > 100
+            else str(request["input"])
+        )
         logger.debug(f"[RunSync {request_id}] Input: {input_preview}")
-    
+
     response = {"status": "completed", "agent": agent}
-    
+
     execution_time = time.time() - start_time
     logger.info(f"[RunSync {request_id}] Request completed in {execution_time:.3f}s")
     logger.debug(f"[RunSync {request_id}] Response: {response}")
-    
+
     return response
 
 
@@ -482,10 +612,10 @@ if __name__ == "__main__":
         logger.error(f"Error importing uvicorn: {e}")
         logger.error("Please install uvicorn: pip install uvicorn")
         sys.exit(1)
-    
+
     port = int(os.getenv("PORT", "7000"))
     logger.info(f"Starting FastAPI Healthcare Agent Server on port {port}...")
-    
+
     try:
         uvicorn.run(app, host="0.0.0.0", port=port)
     except KeyboardInterrupt:

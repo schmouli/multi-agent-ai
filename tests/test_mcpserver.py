@@ -52,7 +52,7 @@ class TestMCPServer:
     def test_doctor_search_empty_state(self):
         """Test search with empty state."""
         result = doctor_search("")
-        assert "No doctors found in state:" in result
+        assert "No doctors found in state: (empty)" in result
 
     def test_doctor_search_nonexistent_state(self):
         """Test search with non-existent state returns no doctors message."""
@@ -61,10 +61,14 @@ class TestMCPServer:
 
     def test_doctor_search_none_state(self):
         """Test search with None state."""
-        # This will cause an AttributeError in the current implementation
-        # We should handle this case properly
-        with pytest.raises(AttributeError):
-            doctor_search(None)
+        # The current implementation returns a string message, not an AttributeError
+        result = doctor_search(None)
+        assert "No doctors found: state parameter is required" in result
+
+    def test_doctor_search_whitespace_state(self):
+        """Test search with whitespace-only state."""
+        result = doctor_search("   ")
+        assert "No doctors found in state: (empty)" in result
 
     def test_doctor_data_integrity(self):
         """Test that all doctors have valid data."""
@@ -243,6 +247,24 @@ class TestMCPServerHTTP:
         assert "result" in data
         content = data["result"]["content"]
         assert "No doctors found in state: XY" in content[0]["text"]
+
+    def test_mcp_call_tool_empty_state(self, client):
+        """Test calling doctor_search with empty state via MCP."""
+        response = client.post("/", json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "doctor_search",
+                "arguments": {"state": ""}
+            }
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        content = data["result"]["content"]
+        assert "No doctors found in state: (empty)" in content[0]["text"]
 
     def test_mcp_call_nonexistent_tool(self, client):
         """Test calling a non-existent tool."""
@@ -464,3 +486,7 @@ class TestMCPServerCurlCommands:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

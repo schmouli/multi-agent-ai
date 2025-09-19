@@ -1,14 +1,14 @@
 # insurance_agent_server.py
-import os
-import logging
 import asyncio
+import logging
+import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import openai
 from acp_sdk.models import Message, MessagePart
 from acp_sdk.server import Context, RunYield, RunYieldResume, Server
-from crewai import Crew, Task, Agent
+from crewai import Agent, Crew, Task
 from crewai_tools import RagTool
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Configure OpenAI client
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
 
 class OpenAILLM:
     def __init__(self, model="gpt-4o-mini", max_tokens=1024, temperature=0.0):
@@ -43,18 +44,16 @@ class OpenAILLM:
         )
         return resp.choices[0].message.content
 
+
 llm_adapter = OpenAILLM(model="gpt-4o-mini", max_tokens=4096, temperature=0.0)
 
 # RAG tool configuration
 config = {
-    "llm": {
-        "provider": "openai",
-        "config": {"model": llm_adapter.model}
-    },
+    "llm": {"provider": "openai", "config": {"model": llm_adapter.model}},
     "embedding_model": {
         "provider": "openai",
-        "config": {"model": "text-embedding-3-small"}
-    }
+        "config": {"model": "text-embedding-3-small"},
+    },
 }
 
 # Initialize RAG tool
@@ -64,7 +63,7 @@ rag_tool = RagTool(config=config)
 data_dir = Path("/app/data")
 if data_dir.exists():
     pdf_files = list(data_dir.glob("*.pdf"))
-    
+
     if pdf_files:
         logger.info(f"Found {len(pdf_files)} PDF files in data directory")
         for pdf_file in pdf_files:
@@ -86,13 +85,16 @@ insurance_agent = Agent(
     allow_delegation=False,
     llm=llm_adapter,
     tools=[rag_tool],
-    max_retry_limit=5
+    max_retry_limit=5,
 )
 
 server = Server()
 
+
 @server.agent()
-async def policy_agent(input: list[Message], context: Context) -> AsyncGenerator[RunYield, RunYieldResume]:
+async def policy_agent(
+    input: list[Message], context: Context
+) -> AsyncGenerator[RunYield, RunYieldResume]:
     """Agent for policy coverage questions using RAG to consult policy docs."""
     user_text = input[0].parts[0].content
     logger.info(f"Received query: {user_text}")
@@ -100,37 +102,44 @@ async def policy_agent(input: list[Message], context: Context) -> AsyncGenerator
     task1 = Task(
         description=user_text,
         expected_output="A comprehensive response as to the users question",
-        agent=insurance_agent
+        agent=insurance_agent,
     )
-    
+
     crew = Crew(agents=[insurance_agent], tasks=[task1], verbose=True)
-    
+
     try:
         task_output = await crew.kickoff_async()
         logger.info("Task completed successfully")
         logger.info(f"Output: {task_output}")
-        
+
         yield Message(parts=[MessagePart(content=str(task_output))])
     except Exception as e:
         logger.error(f"Error processing query: {e}")
-        yield Message(parts=[MessagePart(content=f"Error processing your query: {str(e)}")])
+        yield Message(
+            parts=[MessagePart(content=f"Error processing your query: {str(e)}")]
+        )
+
 
 if __name__ == "__main__":
     logger.info("=== Insurance Agent Server Starting ===")
     logger.info(f"Working directory: {os.getcwd()}")
-    
+
     if openai.api_key:
         logger.info("OpenAI API key found and configured")
     else:
-        logger.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
-    
+        logger.error(
+            "OpenAI API key not found. Please set the OPENAI_API_KEY environment variable."
+        )
+
     logger.info(f"Using OpenAI API key: {openai.api_key[:4]}************")
-    
-    logger.info(f"OpenAILLM initialized with model: {llm_adapter.model}, max_tokens: {llm_adapter.max_tokens}, temperature: {llm_adapter.temperature}")
-    
+
+    logger.info(
+        f"OpenAILLM initialized with model: {llm_adapter.model}, max_tokens: {llm_adapter.max_tokens}, temperature: {llm_adapter.temperature}"
+    )
+
     if data_dir.exists():
         pdf_files = list(data_dir.glob("*.pdf"))
-        
+
         if pdf_files:
             logger.info(f"Found {len(pdf_files)} PDF files in data directory")
             for i, pdf_file in enumerate(pdf_files, start=1):
@@ -141,6 +150,6 @@ if __name__ == "__main__":
             logger.warning("No PDF files found in /app/data directory")
     else:
         logger.warning("/app/data directory does not exist")
-    
+
     logger.info("Starting Insurance Agent Server on port 7001...")
     server.run(port=7001)
