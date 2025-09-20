@@ -104,7 +104,6 @@ logs/
 # AI/ML specific
 models/
 checkpoints/
-data/
 datasets/
 *.pkl
 *.pickle

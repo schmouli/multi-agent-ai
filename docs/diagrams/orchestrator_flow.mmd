@@ -1,0 +1,22 @@
+flowchart LR
+  U[User] --> W[Web Client (7080)]
+  W -->|POST /query| O
+
+  subgraph O[Agent Orchestrator (7500)]
+    C[Classify query\n(doctor vs insurance)]
+    R{Route to agent}
+    C --> R
+  end
+
+  subgraph F[FastAPI Agent Server (7000)]
+    E[Extract state code\nfrom location/query]
+  end
+
+  R -->|doctor / hospital| F
+  R -->|insurance| I[Insurance Agent Server (7001)\nRAG via WebSocket]
+  F -->|provider search| M[MCP Server (8333)\nDoctor Search]
+
+  M --> F
+  F --> O
+  I --> O
+  O -->|JSON { success, result }| W

@@ -4,7 +4,7 @@ A comprehensive multi-agent AI system that provides healthcare information and i
 
 ## 🏗️ System Architecture
 
-The system consists of four main services:
+The system consists of five main services:
 
 ### 🔍 **MCP Server** (Port 8333)
 - **Purpose**: Doctor search API using Model Context Protocol
@@ -37,7 +37,70 @@ The system consists of four main services:
 - **Features**: Location-based healthcare queries
 - **Container**: `multi-agent-webclient`
 
-## 🚀 Quick Start
+### 🧠 **Agent Orchestrator** (Port 7500)
+- **Purpose**: Smart router that classifies each user query and forwards it to the right downstream service
+- **Technology**: FastAPI + AutoGen (LLM router) + rule-based fallback
+- **Features**:
+  - Classifies queries as healthcare provider search vs. insurance coverage
+  - Routes to the Healthcare FastAPI Agent (HTTP) or Insurance Agent (WebSocket)
+  - Exposes a unified `/query` endpoint and service status under `/agents/status`
+  - Strict environment handling (requires `OPENAI_API_KEY`)
+- **Container**: `multi-agent-orchestrator`
+
+## �️ Workflow Diagram
+
+The diagram below shows how a user query flows through the system, how the FastAPI Agent Server extracts state and routes the request to either the MCP Server (doctor search) or the Insurance Agent Server (coverage via RAG).
+
+```mermaid
+flowchart LR
+  U[User] --> W[Web Client (7080)]
+  W -->|POST /query| F
+
+  subgraph F[FastAPI Agent Server (7000)]
+    E[Extract state code\nfrom location/query]
+    R{Route by agent\n(doctor vs insurance)}
+  end
+
+  R -->|doctor / hospital| M[MCP Server (8333)\nDoctor Search]
+  R -->|insurance| I[Insurance Agent Server (7001)\nRAG via WebSocket]
+
+```
+
+And the same flow as an interaction timeline:
+
+sequenceDiagram
+  participant U as User
+  participant W as Web Client (7080)
+  participant F as FastAPI Agent (7000)
+  participant M as MCP Server (8333)
+  participant I as Insurance Agent (7001/ws)
+
+  U->>W: Type query + location
+  W->>F: POST /query {location, query, agent}
+  F->>F: Extract state (GA/CA/NY...)
+  alt provider search (doctor/hospital)
+    F->>M: tools/call doctor_search {state or query}
+    M-->>F: results (providers)
+  else insurance coverage
+    F->>I: ws.send(coverage question)
+    I-->>F: RAG answer (from PDFs)
+  end
+  F-->>W: JSON { success, result, agent_used }
+  W-->>U: Render response
+
+To (re)generate the static PNGs used above:
+
+```bash
+./scripts/render-diagrams.sh
+```
+```
+
+Notes
+- Ports: MCP 8333, FastAPI 7000, Insurance 7001 (WebSocket), Web Client 7080.
+- The Insurance Agent Server indexes PDF policies on startup and answers via RAG.
+- The FastAPI Agent extracts state codes (e.g., "Atlanta, GA" → GA) and routes accordingly.
+
+## �🚀 Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
@@ -70,6 +133,92 @@ docker-compose up --build
 - **Healthcare API**: http://localhost:7000
 - **Insurance API**: ws://localhost:7001 (WebSocket)
 - **MCP Server**: http://localhost:8333
+- **Agent Orchestrator**: http://localhost:7500
+
+## 🧭 Agent Orchestrator
+
+The Agent Orchestrator is the single entry point that decides whether a query is about finding a healthcare provider or about insurance coverage.
+
+### What it does
+- Combines LLM-based classification (AutoGen) with a robust rule-based fallback for reliability.
+- Prioritizes provider-seeking with location patterns (e.g., "doctor near me that accepts my plan").
+- Recognizes strong insurance phrases (e.g., "does my plan cover …", "insurance reimbursement …").
+- Returns the agent used, a confidence score, and short reasoning with every response.
+
+### Ports and URLs
+- Orchestrator HTTP: http://localhost:7500
+- Downstream Health Agent: `FASTAPI_SERVER_URL` (default http://server:7000)
+- Downstream Insurance Agent (WebSocket): `INSURANCE_SERVER_URL` (default ws://insurance-server:7001)
+- MCP Server (doctor search): `MCP_SERVER_URL` (default http://mcpserver:8333)
+
+### Environment Variables
+- `OPENAI_API_KEY` (required) – Orchestrator will fail fast with a clear error if missing.
+- `FASTAPI_SERVER_URL` – URL to the healthcare FastAPI Agent.
+- `INSURANCE_SERVER_URL` – WebSocket URL to the Insurance Agent.
+- `MCP_SERVER_URL` – URL to the MCP Server.
+
+### Endpoints
+- `GET /health` – Basic service health and downstream URLs.
+- `POST /query` – Classify + route the query, returns a unified response.
+- `GET /agents/status` – Pings downstream services (HTTP); marks insurance as "websocket - not tested".
+
+### Request/Response Shapes
+- POST `/query` body:
+  - `location` (string)
+  - `query` (string, required; non-empty)
+  - `agent` (string, optional): one of `auto` (default), `doctor|health`, `insurance`
+- Response fields:
+  - `result` (string)
+  - `success` (bool)
+  - `agent_used` (string)
+  - `confidence` (float)
+  - `reasoning` (string)
+
+### Examples
+
+Provider search (doctor):
+
+```bash
+curl -s -X POST http://localhost:7500/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "Atlanta, GA",
+    "query": "find cardiologist near me that accepts my plan",
+    "agent": "auto"
+  }'
+```
+
+Insurance coverage question:
+
+```bash
+curl -s -X POST http://localhost:7500/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "",
+    "query": "does my plan cover cardiologist visits?",
+    "agent": "auto"
+  }'
+```
+
+Force a specific agent:
+
+```bash
+curl -s -X POST http://localhost:7500/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "NYC, NY",
+    "query": "find pediatrician",
+    "agent": "doctor"
+  }'
+```
+
+### Classification cheatsheet
+- Provider seeking + location → HEALTH_DOCTOR (confidence ~0.8)
+- Strong insurance phrase → INSURANCE (confidence ~0.8)
+- Mixed query with “find/need/looking for” → HEALTH_DOCTOR (confidence ~0.7)
+- Generic insurance keywords → INSURANCE (confidence ~0.7)
+- Generic health keywords → HEALTH_DOCTOR (confidence ~0.7)
+- No clear signals → Default to HEALTH_DOCTOR (confidence ~0.3)
 
 ## 📋 Service Management
 
@@ -226,14 +375,14 @@ curl -X POST http://localhost:7000/query \
   }'
 ```
 
-### Insurance Agent API (Port 7002)
+### Insurance Agent API (Port 7001)
 
 The insurance agent uses WebSocket communication through the ACP SDK:
 
 #### Connect via WebSocket
 ```javascript
 // WebSocket connection example
-const ws = new WebSocket('ws://localhost:7002');
+const ws = new WebSocket('ws://localhost:7001');
 
 ws.onopen = function() {
     // Send insurance query
