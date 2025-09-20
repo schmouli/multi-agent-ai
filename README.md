@@ -53,60 +53,13 @@ The diagram below shows how a user query flows through the system, with the Agen
 
 <img alt="Orchestrator Flow" src="docs/images/orchestrator-flow.png" width="720" />
 
-```mermaid
-flowchart LR
-  U[User] --> W[Web Client (7080)]
-  W -->|POST /query| O
 
-  subgraph O[Agent Orchestrator (7500)]
-    C[Classify query\n(doctor vs insurance)]
-    R{Route to agent}
-    C --> R
-  end
-
-  subgraph F[FastAPI Agent Server (7000)]
-    E[Extract state code\nfrom location/query]
-  end
-
-  R -->|doctor / hospital| F
-  R -->|insurance| I[Insurance Agent Server (7001)\nRAG via WebSocket]
-  F -->|provider search| M[MCP Server (8333)\nDoctor Search]
-
-  M --> F
-  F --> O
-  I --> O
-  O -->|JSON { success, result }| W
-```
 
 And the same flow as an interaction timeline:
 
 <img alt="Orchestrator Sequence" src="docs/images/orchestrator-sequence.png" width="720" />
 
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant W as Web Client (7080)
-  participant O as Orchestrator (7500)
-  participant F as FastAPI Agent (7000)
-  participant M as MCP Server (8333)
-  participant I as Insurance Agent (7001/ws)
 
-  U->>W: Type query + location
-  W->>O: POST /query {location, query, agent}
-  O->>O: Classify (LLM + rules)
-  alt provider search (doctor/hospital)
-    O->>F: POST /query {location, query}
-    F->>F: Extract state (GA/CA/NY...)
-    F->>M: tools/call doctor_search {state or query}
-    M-->>F: results (providers)
-    F-->>O: JSON { success, result }
-  else insurance coverage
-    O->>I: ws.send(coverage question)
-    I-->>O: RAG answer (from PDFs)
-  end
-  O-->>W: JSON { success, result, agent_used }
-  W-->>U: Render response
-```
 
 To (re)generate the static PNGs used above:
 
