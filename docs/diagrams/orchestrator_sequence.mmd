@@ -4,20 +4,20 @@ sequenceDiagram
   participant O as Orchestrator (7500)
   participant F as FastAPI Agent (7000)
   participant M as MCP Server (8333)
-  participant I as Insurance Agent (7001/ws)
+  participant I as Insurance Agent (7001 ws)
 
-  U->>W: Type query + location
-  W->>O: POST /query {location, query, agent}
+  U->>W: Type query and location
+  W->>O: POST query with payload
   O->>O: Classify (LLM + rules)
-  alt provider search (doctor/hospital)
-    O->>F: POST /query {location, query}
-    F->>F: Extract state (GA/CA/NY...)
-    F->>M: tools/call doctor_search {state or query}
+  alt provider search (doctor or hospital)
+    O->>F: POST query to health agent
+    F->>F: Extract state (GA/CA/NY)
+    F->>M: call doctor_search (state or query)
     M-->>F: results (providers)
-    F-->>O: JSON { success, result }
+    F-->>O: JSON (success, result)
   else insurance coverage
-    O->>I: ws.send(coverage question)
+    O->>I: coverage question
     I-->>O: RAG answer (from PDFs)
   end
-  O-->>W: JSON { success, result, agent_used }
+  O-->>W: JSON (success, result, agent_used)
   W-->>U: Render response

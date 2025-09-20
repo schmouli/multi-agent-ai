@@ -75,6 +75,8 @@ celerybeat.pid
 
 # mkdocs documentation
 /site
+package-lock.json
+package.json
 
 # mypy
 .mypy_cache/
@@ -109,6 +111,7 @@ datasets/
 *.pickle
 
 # FastAPI/Flask
+node_modules/
 instance/
 .webassets-cache
 crewai-rag-tool.lock
