@@ -59,30 +59,6 @@ And the same flow as an interaction timeline:
 
 <img alt="Orchestrator Sequence" src="docs/images/orchestrator-sequence.png" width="720" />
 
-
-
-To (re)generate the static PNGs used above:
-
-- Using Docker (recommended for consistency):
-
-```bash
-./scripts/render-diagrams.sh
-```
-
-- Or using Node/npm (no Docker required):
-
-```bash
-# install dev dependency locally
-npm install
-
-# render via npm script
-npm run render:diagrams
-
-# or directly with npx
-./scripts/render-diagrams-npm.sh
-```
-```
-
 Notes
 - Ports: MCP 8333, FastAPI 7000, Insurance 7001 (WebSocket), Web Client 7080.
 - The Insurance Agent Server indexes PDF policies on startup and answers via RAG.
